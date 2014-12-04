@@ -28,6 +28,22 @@ void fillEntries() {
 	strcpy(entries[1], "goodbye");
 }
 
+/* check the value of a specific resistor like at 0x02 (pin 2)
+   and return whether it senses a shadow or not */ 
+bool checkPhotoValue(unsigned char resistor) {
+	Set_A2D_Pin(resistor);
+	for(int i=0;i<100;++i);
+	unsigned short input = ADC;
+	char value[16];
+	sprintf(value, "%u", input);
+	LCD_DisplayString(1, value);
+	if(input < photoValue) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
 void ADC_init() {
 	ADCSRA |= (1 << ADEN) | (1 << ADSC) | (1 << ADATE);
 }
@@ -46,16 +62,7 @@ void LEDS_Init(){
 }
 
 void LEDS_Tick(){
-	unsigned short input = ADC;
-	char value[16];
-	sprintf(value, "%u", input);
-	LCD_DisplayString(1, value);
-	if(input < 120) {
-		PORTD = 0x80;
-	}
-	else {
-		PORTD = 0x00;
-	}
+	PORTD = checkPhotoValue(0x02) ? 0x80 : 0x00;
 }
 
 void LedSecTask()
@@ -81,7 +88,6 @@ int main(void)
    //Start Tasks  
    LCD_init();
    ADC_init();
-   Set_A2D_Pin(0x02);
    fillEntries();
    
    StartSecPulse(1);
