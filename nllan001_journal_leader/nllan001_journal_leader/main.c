@@ -21,8 +21,12 @@
 #include "lcd.h"
 #include "usart_ATmega1284.h"
 
-/* constant to determine the threshold of the sensor for checking shadows */
-const unsigned char photoValue = 120;
+/* constants for different thresholds concerning ac values */
+const unsigned short photoValue = 120;
+const unsigned short joystickLRLeft = 504 + 50;
+const unsigned short joystickLRRight = 504 - 50;
+const unsigned short joystickUDDown = 504 - 50;
+const unsigned short joystickUDUp = 504 + 50;
 
 /* the array of entries for the journal */
 char entries[5][100];
@@ -37,13 +41,43 @@ void fillEntries() {
    and return whether it senses a shadow or not */ 
 bool checkPhotoValue(unsigned char resistor) {
 	Set_A2D_Pin(resistor);
-	for(int i=0;i<100;++i);
+	for(int i = 0; i < 100; ++i);
 	unsigned short input = ADC;
+	/* For debugging purposes. It outputs the ADC value to the LCD. */
+	/*
 	char value[16];
 	sprintf(value, "%u", input);
 	LCD_DisplayString(1, value);
+	*/
 	if(input < photoValue) {
 		return true;
+	} else {
+		return false;
+	}
+}
+
+/* check the direction that the joystick is being pushed. 
+   pass in l, r, d, or u for left, right, down, or up to check
+   those specific directions on the joystick */
+bool checkDirection(const char direction) {
+	if(direction == 'd' || direction == 'u') {
+		Set_A2D_Pin(0x00);
+		for(int i = 0; i < 100; ++i);
+		unsigned short input = ADC;
+		if(direction == 'd') {
+			return input < joystickUDDown ? true : false;
+		} else {
+			return input > joystickUDUp ? true : false;
+		}	
+	} else if(direction == 'l' || direction == 'r') {
+		Set_A2D_Pin(0x01);
+		for(int i = 0; i < 100; ++i);
+		unsigned short input = ADC;
+		if(direction == 'l') {
+			return input > joystickLRLeft ? true : false;
+			} else {
+			return input < joystickLRRight ? true : false;
+		}
 	} else {
 		return false;
 	}
@@ -69,7 +103,12 @@ void LEDS_Init(){
 }
 
 void LEDS_Tick(){
-	PORTD = checkPhotoValue(0x02) ? 0x80 : 0x00;
+	unsigned short input = ADC;
+	/* For debugging purposes. It outputs the ADC value to the LCD. */
+	char value[16];
+	sprintf(value, "%u", input);
+	LCD_DisplayString(1, value);
+	PORTD = checkDirection('d') ? 0x80 : 0x00;
 }
 
 void LedSecTask()
@@ -89,7 +128,7 @@ void StartSecPulse(unsigned portBASE_TYPE Priority)
  
 int main(void) 
 { 
-   DDRA = 0x00; PORTA = 0xFF;
+   //DDRA = 0x00; PORTA = 0xFF;
    DDRD = 0xFF; PORTD = 0x00;
    DDRB = 0xFF; PORTB = 0x00;
    
