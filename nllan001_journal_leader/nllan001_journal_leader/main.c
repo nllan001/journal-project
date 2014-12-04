@@ -21,8 +21,13 @@
 #include "lcd.h"
 #include "usart_ATmega1284.h"
 
+/* constant to determine the threshold of the sensor for checking shadows */
 const unsigned char photoValue = 120;
+
+/* the array of entries for the journal */
 char entries[5][100];
+
+/* fills entries for checking purposes */
 void fillEntries() {
 	strcpy(entries[0], "hello");
 	strcpy(entries[1], "goodbye");
@@ -44,10 +49,12 @@ bool checkPhotoValue(unsigned char resistor) {
 	}
 }
 
+/* initialize the ADC register for checking analog values */
 void ADC_init() {
 	ADCSRA |= (1 << ADEN) | (1 << ADSC) | (1 << ADATE);
 }
 
+/* set which pin is being used as Vin to compare against the Vref from the AREF pin */
 void Set_A2D_Pin(unsigned char pinNum) {
 	ADMUX = (pinNum <= 0x07) ? pinNum : ADMUX;
 	// Allow channel to stabilize
@@ -85,11 +92,13 @@ int main(void)
    DDRA = 0x00; PORTA = 0xFF;
    DDRD = 0xFF; PORTD = 0x00;
    DDRB = 0xFF; PORTB = 0x00;
-   //Start Tasks  
+   
+   //Initialize components and registers
    LCD_init();
    ADC_init();
-   fillEntries();
    
+   fillEntries();
+   //Start Tasks  
    StartSecPulse(1);
     //RunSchedular 
    vTaskStartScheduler(); 
