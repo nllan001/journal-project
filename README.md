@@ -19,3 +19,11 @@ U/D - A1
 L/R - A0
 L/R+ - Vcc
 U/D+ - Vcc
+
+Photoresistors:
+Module 1:
+Left - A2
+Up - A3
+Right - A4
+Down - A5
+
