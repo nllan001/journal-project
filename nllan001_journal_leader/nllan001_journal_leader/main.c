@@ -14,6 +14,19 @@
 #include "FreeRTOS.h" 
 #include "task.h" 
 #include "croutine.h" 
+
+//Include given files
+#include "bit.h"
+#include "keypad.h"
+#include "lcd.h"
+#include "usart_ATmega1284.h"
+
+char entries[5][100];
+void fillEntries() {
+	strcpy(entries[0], "hello");
+	strcpy(entries[1], "goodbye");
+}
+
 enum LEDState {INIT,L0,L1,L2,L3,L4,L5,L6,L7} led_state;
 
 void LEDS_Init(){
@@ -21,72 +34,7 @@ void LEDS_Init(){
 }
 
 void LEDS_Tick(){
-	//Actions
-	switch(led_state){
-		case INIT:
-		PORTD = 0;
-		break;
-		case L0:
-		PORTD = 1;
-		break;
-		case L1:
-		PORTD = 2;
-		break;
-		case L2:
-		PORTD = 4;
-		break;
-		case L3:
-		PORTD = 8;
-		break;
-		case L4:
-		PORTD = 16;
-		break;
-		case L5:
-		PORTD = 32;
-		break;
-		case L6:
-		PORTD = 64;
-		break;
-		case L7:
-		PORTD = 128;
-		break;
-		default:
-		PORTD = 0;
-		break;
-	}
-	//Transitions
-	switch(led_state){
-		case INIT:
-			led_state = L0;
-		break;
-		case L0:
-			led_state = L1;
-		break;
-		case L1:
-			led_state = L2;
-		break;
-		case L2:
-			led_state = L3;
-		break;
-		case L3:
-			led_state = L4;
-		break;
-		case L4:
-			led_state = L5;
-		break;
-		case L5:
-			led_state = L6;
-		break;
-		case L6:
-			led_state = L7;
-		break;
-		case L7:
-			led_state = L0;
-		break;
-		default:
-			led_state = INIT;
-		break;
-	}
+	
 }
 
 void LedSecTask()
@@ -106,9 +54,13 @@ void StartSecPulse(unsigned portBASE_TYPE Priority)
  
 int main(void) 
 { 
-   DDRA = 0x00; PORTA=0xFF;
-   DDRD = 0xFF;
+   DDRA = 0x00; PORTA = 0xFF;
+   DDRD = 0xFF; PORTD = 0x00;
+   DDRB = 0xFF; PORTB = 0x00;
    //Start Tasks  
+   LCD_init();
+   fillEntries();
+   LCD_DisplayString(1, entries[1]);
    StartSecPulse(1);
     //RunSchedular 
    vTaskStartScheduler(); 
