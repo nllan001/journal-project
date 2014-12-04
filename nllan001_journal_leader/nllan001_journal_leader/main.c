@@ -21,10 +21,22 @@
 #include "lcd.h"
 #include "usart_ATmega1284.h"
 
+const unsigned char photoValue = 120;
 char entries[5][100];
 void fillEntries() {
 	strcpy(entries[0], "hello");
 	strcpy(entries[1], "goodbye");
+}
+
+void ADC_init() {
+	ADCSRA |= (1 << ADEN) | (1 << ADSC) | (1 << ADATE);
+}
+
+void Set_A2D_Pin(unsigned char pinNum) {
+	ADMUX = (pinNum <= 0x07) ? pinNum : ADMUX;
+	// Allow channel to stabilize
+	static unsigned char i = 0;
+	for ( i=0; i<15; i++ ) { asm("nop"); }
 }
 
 enum LEDState {INIT,L0,L1,L2,L3,L4,L5,L6,L7} led_state;
@@ -34,7 +46,16 @@ void LEDS_Init(){
 }
 
 void LEDS_Tick(){
-	
+	unsigned short input = ADC;
+	char value[16];
+	sprintf(value, "%u", input);
+	LCD_DisplayString(1, value);
+	if(input < 120) {
+		PORTD = 0x80;
+	}
+	else {
+		PORTD = 0x00;
+	}
 }
 
 void LedSecTask()
@@ -43,7 +64,7 @@ void LedSecTask()
    for(;;) 
    { 	
 	LEDS_Tick();
-	vTaskDelay(100); 
+	vTaskDelay(500); 
    } 
 }
 
@@ -59,8 +80,10 @@ int main(void)
    DDRB = 0xFF; PORTB = 0x00;
    //Start Tasks  
    LCD_init();
+   ADC_init();
+   Set_A2D_Pin(0x02);
    fillEntries();
-   LCD_DisplayString(1, entries[1]);
+   
    StartSecPulse(1);
     //RunSchedular 
    vTaskStartScheduler(); 
