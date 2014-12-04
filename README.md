@@ -11,7 +11,7 @@ LCD:
 4 - Reset at Leader D2
 5 - Gnd
 6 - Enable at Leader D3
-7-14 - PORTB flipped (ie. B0 = 14, B7 = 7)
+7-14 - PORTB
 
 Joystick:
 GND - Gnd
