@@ -28,6 +28,9 @@ const unsigned short joystickLRRight = 504 - 50;
 const unsigned short joystickUDDown = 504 - 50;
 const unsigned short joystickUDUp = 504 + 50;
 
+unsigned char cursorPos = 1;
+const unsigned char screenWidth = 16;
+
 /* the array of entries for the journal */
 char entries[5][100];
 
@@ -43,12 +46,6 @@ bool checkPhotoValue(unsigned char resistor) {
 	Set_A2D_Pin(resistor);
 	for(int i = 0; i < 100; ++i);
 	unsigned short input = ADC;
-	/* For debugging purposes. It outputs the ADC value to the LCD. */
-	/*
-	char value[16];
-	sprintf(value, "%u", input);
-	LCD_DisplayString(1, value);
-	*/
 	if(input < photoValue) {
 		return true;
 	} else {
@@ -96,6 +93,27 @@ void Set_A2D_Pin(unsigned char pinNum) {
 	for ( i=0; i<15; i++ ) { asm("nop"); }
 }
 
+void moveCursor() {
+	if(checkDirection('r')) {
+		if(cursorPos < screenWidth * 2) {
+			cursorPos++;
+		}
+		} else if(checkDirection('l')) {
+		if(cursorPos > 1) {
+			cursorPos--;
+		}
+		} else if(checkDirection('u')) {
+		if(cursorPos > screenWidth) {
+			cursorPos -= screenWidth;
+		}
+		} else if(checkDirection('d')) {
+		if(cursorPos <= screenWidth) {
+			cursorPos += screenWidth;
+		}
+	}
+	LCD_Cursor(cursorPos);
+}
+
 enum LEDState {INIT,L0,L1,L2,L3,L4,L5,L6,L7} led_state;
 
 void LEDS_Init(){
@@ -103,12 +121,17 @@ void LEDS_Init(){
 }
 
 void LEDS_Tick(){
-	unsigned short input = ADC;
-	/* For debugging purposes. It outputs the ADC value to the LCD. */
+	/*unsigned short input = ADC;
 	char value[16];
 	sprintf(value, "%u", input);
 	LCD_DisplayString(1, value);
-	PORTD = checkDirection('d') ? 0x80 : 0x00;
+	PORTD = checkDirection('d') ? 0x80 : 0x00;*/
+/*
+	char value[16];
+	sprintf(value, "%c", GetKeypadKey());
+	LCD_DisplayString(1, value);
+*/
+	moveCursor();
 }
 
 void LedSecTask()
@@ -117,7 +140,7 @@ void LedSecTask()
    for(;;) 
    { 	
 	LEDS_Tick();
-	vTaskDelay(500); 
+	vTaskDelay(100); 
    } 
 }
 
@@ -129,8 +152,10 @@ void StartSecPulse(unsigned portBASE_TYPE Priority)
 int main(void) 
 { 
    //DDRA = 0x00; PORTA = 0xFF;
-   DDRD = 0xFF; PORTD = 0x00;
    DDRB = 0xFF; PORTB = 0x00;
+   DDRC = 0xF0; PORTC = 0x0F;
+   DDRD = 0xFF; PORTD = 0x00;
+   
    
    //Initialize components and registers
    LCD_init();
