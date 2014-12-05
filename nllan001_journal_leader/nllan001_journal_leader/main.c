@@ -23,13 +23,14 @@
 
 /* constants for different thresholds concerning ac values */
 const unsigned short photoValue = 120;
-const unsigned short joystickLRLeft = 504 + 50;
-const unsigned short joystickLRRight = 504 - 50;
-const unsigned short joystickUDDown = 504 - 50;
-const unsigned short joystickUDUp = 504 + 50;
+const unsigned short joystickLRLeft = 504 + 100;
+const unsigned short joystickLRRight = 504 - 100;
+const unsigned short joystickUDDown = 504 - 150;
+const unsigned short joystickUDUp = 504 + 150;
 
 unsigned char cursorPos = 1;
 const unsigned char screenWidth = 16;
+const int numEntries = 5;
 
 /* the array of entries for the journal */
 char entries[5][100];
@@ -38,6 +39,22 @@ char entries[5][100];
 void fillEntries() {
 	strcpy(entries[0], "hello");
 	strcpy(entries[1], "goodbye");
+}
+
+/* track the currently displayed entry in the array */
+unsigned char currentEntry = 0;
+
+/* initialize the ADC register for checking analog values */
+void ADC_init() {
+	ADCSRA |= (1 << ADEN) | (1 << ADSC) | (1 << ADATE);
+}
+
+/* set which pin is being used as Vin to compare against the Vref from the AREF pin */
+void Set_A2D_Pin(unsigned char pinNum) {
+	ADMUX = (pinNum <= 0x07) ? pinNum : ADMUX;
+	// Allow channel to stabilize
+	static unsigned char i = 0;
+	for ( i=0; i<15; i++ ) { asm("nop"); }
 }
 
 /* check the value of a specific resistor like at 0x02 (pin 2)
@@ -80,38 +97,42 @@ bool checkDirection(const char direction) {
 	}
 }
 
-/* initialize the ADC register for checking analog values */
-void ADC_init() {
-	ADCSRA |= (1 << ADEN) | (1 << ADSC) | (1 << ADATE);
-}
-
-/* set which pin is being used as Vin to compare against the Vref from the AREF pin */
-void Set_A2D_Pin(unsigned char pinNum) {
-	ADMUX = (pinNum <= 0x07) ? pinNum : ADMUX;
-	// Allow channel to stabilize
-	static unsigned char i = 0;
-	for ( i=0; i<15; i++ ) { asm("nop"); }
-}
-
+/* check for movements from the joystick to move the cursor */
 void moveCursor() {
 	if(checkDirection('r')) {
 		if(cursorPos < screenWidth * 2) {
 			cursorPos++;
 		}
-		} else if(checkDirection('l')) {
+	} else if(checkDirection('l')) {
 		if(cursorPos > 1) {
 			cursorPos--;
 		}
-		} else if(checkDirection('u')) {
+	} else if(checkDirection('u')) {
 		if(cursorPos > screenWidth) {
 			cursorPos -= screenWidth;
 		}
-		} else if(checkDirection('d')) {
+	} else if(checkDirection('d')) {
 		if(cursorPos <= screenWidth) {
 			cursorPos += screenWidth;
 		}
 	}
 	LCD_Cursor(cursorPos);
+}
+
+/* allow for movement on the screen and check for input.
+   if there is input, replace the text at the current position.
+   once usart is added, make sure getkeypadkey is replaced with
+   listening for input from the follower. it's possible i might have
+   to move the moveCursor out of the function. */
+void enterText() {
+		moveCursor();
+		unsigned char input = GetKeypadKey();
+		if(input != '\0') {
+			entries[currentEntry][cursorPos - 1] = input;
+			if(cursorPos < 32) cursorPos++;
+		}
+		LCD_DisplayString(1, entries[currentEntry]);
+		LCD_Cursor(cursorPos);
 }
 
 enum LEDState {INIT,L0,L1,L2,L3,L4,L5,L6,L7} led_state;
@@ -121,17 +142,20 @@ void LEDS_Init(){
 }
 
 void LEDS_Tick(){
-	/*unsigned short input = ADC;
+/*	Set_A2D_Pin(0x00);
+	for(int i=0;i<100;++i);
+	unsigned short input = ADC;
 	char value[16];
 	sprintf(value, "%u", input);
 	LCD_DisplayString(1, value);
-	PORTD = checkDirection('d') ? 0x80 : 0x00;*/
+*/
+	//PORTD = checkDirection('d') ? 0x80 : 0x00;*/
 /*
 	char value[16];
 	sprintf(value, "%c", GetKeypadKey());
 	LCD_DisplayString(1, value);
 */
-	moveCursor();
+	enterText();
 }
 
 void LedSecTask()
@@ -140,7 +164,7 @@ void LedSecTask()
    for(;;) 
    { 	
 	LEDS_Tick();
-	vTaskDelay(100); 
+	vTaskDelay(300); 
    } 
 }
 
@@ -161,6 +185,7 @@ int main(void)
    LCD_init();
    ADC_init();
    
+   //emptyEntries();
    fillEntries();
    //Start Tasks  
    StartSecPulse(1);
