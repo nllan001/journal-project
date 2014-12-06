@@ -22,7 +22,7 @@
 #include "usart_ATmega1284.h"
 
 /* constants for different thresholds concerning ac values */
-const unsigned short photoValue = 40;
+const unsigned short photoValue = 42;
 const unsigned short joystickLRLeft = 504 + 100;
 const unsigned short joystickLRRight = 504 - 100;
 const unsigned short joystickUDDown = 504 - 150;
@@ -145,15 +145,15 @@ void LEDS_Init(){
 
 void LEDS_Tick(){
 	switch(led_state) {
-		case(INIT):
+		case INIT:
 		led_state = L0;
 		break;
-		case(L0):
-		if(checkPhotoValue(0x02) && !checkPhotoValue(0x04)) {
+		case L0:
+		if(checkPhotoValue(0x02)) {
 			led_state = L1;
 		}
 		break;
-		case(L1):
+		case L1:
 		if(!checkPhotoValue(0x02) && !checkPhotoValue(0x04)) {
 			led_state = L0;
 		} else if(!checkPhotoValue(0x02) && checkPhotoValue(0x04)) {
@@ -162,7 +162,7 @@ void LEDS_Tick(){
 			led_state = L1;
 		}
 		break;
-		case(L2):
+		case L2:
 		led_state = L0;
 		break;
 		default:
@@ -170,15 +170,11 @@ void LEDS_Tick(){
 		break;
 	}
 	switch(led_state) {
-		case(INIT):
-		break;
-		case(L0):
+		case L0:
 		PORTC = 0x00;
 		break;
-		case(L1):
-		break;
-		case(L2):
-		PORTC = 0x01;
+		case L2:
+		PORTC = 0x08;
 		break;
 	}
 }
@@ -186,22 +182,21 @@ void LEDS_Tick(){
 void LedSecTask()
 {
 	LEDS_Init();
-   for(;;) 
-   { 	
-	LEDS_Tick();
-	vTaskDelay(100); 
-   } 
+	for(;;) { 	
+		LEDS_Tick();
+		vTaskDelay(150); 
+	} 
 }
 
 void TextTask() {
 	for(;;) {
-/*	Set_A2D_Pin(0x02);
+	Set_A2D_Pin(0x02);
 	for(int i=0;i<100;++i);
 	unsigned short input = ADC;
 	char value[16];
 	sprintf(value, "%u", input);
 	LCD_DisplayString(1, value);
-*/
+
 	//PORTD = checkDirection('d') ? 0x80 : 0x00;*/
 /*
 	char value[16];
