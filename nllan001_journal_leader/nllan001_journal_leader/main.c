@@ -22,7 +22,7 @@
 #include "usart_ATmega1284.h"
 
 /* constants for different thresholds concerning ac values */
-const unsigned short photoValue = 120;
+const unsigned short photoValue = 40;
 const unsigned short joystickLRLeft = 504 + 100;
 const unsigned short joystickLRRight = 504 - 100;
 const unsigned short joystickUDDown = 504 - 150;
@@ -144,7 +144,58 @@ void LEDS_Init(){
 }
 
 void LEDS_Tick(){
-/*	Set_A2D_Pin(0x00);
+	switch(led_state) {
+		case(INIT):
+		led_state = L0;
+		break;
+		case(L0):
+		if(checkPhotoValue(0x02) && !checkPhotoValue(0x04)) {
+			led_state = L1;
+		}
+		break;
+		case(L1):
+		if(!checkPhotoValue(0x02) && !checkPhotoValue(0x04)) {
+			led_state = L0;
+		} else if(!checkPhotoValue(0x02) && checkPhotoValue(0x04)) {
+			led_state = L2;
+		} else {
+			led_state = L1;
+		}
+		break;
+		case(L2):
+		led_state = L0;
+		break;
+		default:
+		led_state = INIT;
+		break;
+	}
+	switch(led_state) {
+		case(INIT):
+		break;
+		case(L0):
+		PORTC = 0x00;
+		break;
+		case(L1):
+		break;
+		case(L2):
+		PORTC = 0x01;
+		break;
+	}
+}
+
+void LedSecTask()
+{
+	LEDS_Init();
+   for(;;) 
+   { 	
+	LEDS_Tick();
+	vTaskDelay(100); 
+   } 
+}
+
+void TextTask() {
+	for(;;) {
+/*	Set_A2D_Pin(0x02);
 	for(int i=0;i<100;++i);
 	unsigned short input = ADC;
 	char value[16];
@@ -157,28 +208,26 @@ void LEDS_Tick(){
 	sprintf(value, "%c", GetKeypadKey());
 	LCD_DisplayString(1, value);
 */
-	enterText();
-}
-
-void LedSecTask()
-{
-	LEDS_Init();
-   for(;;) 
-   { 	
-	LEDS_Tick();
-	vTaskDelay(300); 
-   } 
+		enterText();
+		vTaskDelay(200);
+	}
 }
 
 void StartSecPulse(unsigned portBASE_TYPE Priority)
 {
 	xTaskCreate(LedSecTask, (signed portCHAR *)"LedSecTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
 }	
+
+void StartText(unsigned portBASE_TYPE Priority)
+{
+	xTaskCreate(TextTask, (signed portCHAR *)"TextTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
+}
  
 int main(void) 
 { 
    DDRB = 0xFF; PORTB = 0x00;
    DDRD = 0xFA; PORTD = 0x05;
+   DDRC = 0xFF; PORTC = 0x00;
    
    //Initialize components and registers
    LCD_init();
@@ -189,6 +238,7 @@ int main(void)
    //emptyEntries();
    fillEntries();
    //Start Tasks  
+   StartText(1);
    StartSecPulse(1);
     //RunSchedular 
    vTaskStartScheduler(); 
