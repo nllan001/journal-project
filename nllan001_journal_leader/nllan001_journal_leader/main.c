@@ -22,7 +22,10 @@
 #include "usart_ATmega1284.h"
 
 /* constants for different thresholds concerning ac values */
-const unsigned short photoValue = 50;
+unsigned short photoValueL;
+unsigned short photoValueR;
+unsigned short photoValueD;
+unsigned short photoValueU;
 const unsigned short joystickLRLeft = 504 + 100;
 const unsigned short joystickLRRight = 504 - 100;
 const unsigned short joystickUDDown = 504 - 150;
@@ -78,6 +81,24 @@ void Set_A2D_Pin(unsigned char pinNum) {
 /* check the value of a specific resistor like at 0x02 (pin 2)
    and return whether it senses a shadow or not */ 
 bool checkPhotoValue(unsigned char resistor) {
+	unsigned short photoValue;
+	switch(resistor) {
+		case 0x02:
+			photoValue = photoValueL;
+			break;
+		case 0x03:
+			photoValue = photoValueU;
+			break;
+		case 0x04:
+			photoValue = photoValueR;
+			break;
+		case 0x05:
+			photoValue = photoValueD;
+			break;
+		default:
+			return false;
+			break;
+	}
 	Set_A2D_Pin(resistor);
 	for(int i = 0; i < 100; ++i);
 	unsigned short input = ADC;
@@ -428,6 +449,10 @@ int main(void)
    //Initialize components and registers
    LCD_init();
    ADC_init();
+   photoValueL = calibrate(0x02) - 10;
+   photoValueR = calibrate(0x04) - 10;
+   photoValueD = calibrate(0x05) - 10;
+   photoValueU = calibrate(0x03) - 10;
    initUSART(0);
    initUSART(1);
    
