@@ -22,23 +22,41 @@
 #include "usart_ATmega1284.h"
 
 /* constants for different thresholds concerning ac values */
-const unsigned short photoValue = 45;
+const unsigned short photoValue = 50;
 const unsigned short joystickLRLeft = 504 + 100;
 const unsigned short joystickLRRight = 504 - 100;
 const unsigned short joystickUDDown = 504 - 150;
 const unsigned short joystickUDUp = 504 + 150;
 
+/* flags for gestures */
+bool leftRight = false;
+bool rightLeft = false;
+bool downUp = false;
+bool upDown = false;
+
 unsigned char cursorPos = 1;
 const unsigned char screenWidth = 16;
-const int numEntries = 5;
+const int numEntries = 10;
 
 /* the array of entries for the journal */
-char entries[5][100];
+char entries[10][100];
 
 /* fills entries for checking purposes */
 void fillEntries() {
-	strcpy(entries[0], "hello");
-	strcpy(entries[1], "goodbye");
+	strcpy(entries[0], "Entry 1");
+	strcpy(entries[1], "Entry 2");
+	strcpy(entries[2], "Entry 3");
+	strcpy(entries[3], "Entry 4");
+	strcpy(entries[4], "Entry 5");
+}
+
+/* calibrates the sensors */
+unsigned short calibrate(unsigned char resistor) {
+	Set_A2D_Pin(resistor);
+	for(int i = 0; i < 100; ++i);
+	unsigned short avg = 0;
+	for(int i = 0; i < 10; ++i) avg += ADC;
+	return avg / 10;
 }
 
 /* track the currently displayed entry in the array */
@@ -137,6 +155,22 @@ void enterText() {
 		LCD_Cursor(cursorPos);
 }
 
+/* change current entry depending on gestures performed */
+void changeEntry() {
+	if(rightLeft) {
+		if(currentEntry < numEntries - 1) {
+			currentEntry++;
+		}
+	} else if(leftRight) {
+		if(currentEntry > 0) {
+			currentEntry--;
+		}
+	}
+}
+
+/* The following series of state machines check for gestures
+   performed above the photo resistors */
+
 enum LRState {initlr, l0, l1, l2} lr_state;
 enum RLState {initrl, r0, r1, r2} rl_state;
 enum DUState {initdu, d0, d1, d2} du_state;
@@ -170,11 +204,12 @@ void lr_Tick(){
 		break;
 		case l1:
 		if(!checkPhotoValue(0x02) && !checkPhotoValue(0x04)) {
-			lr_state = l0;
+				lr_state = l0;
 		} else if(!checkPhotoValue(0x02) && checkPhotoValue(0x04)) {
-			lr_state = l2;
+				lr_state = l2;
+				leftRight = true;
 		} else {
-			lr_state = l1;
+				lr_state = l1;
 		}
 		break;
 		case l2:
@@ -186,10 +221,9 @@ void lr_Tick(){
 	}
 	switch(lr_state) {
 		case l0:
-		//PORTC = 0x00;
+		leftRight = false;
 		break;
 		case l2:
-		//PORTC = 0x01;
 		break;
 	}
 }
@@ -207,10 +241,11 @@ void rl_Tick(){
 		case r1:
 		if(!checkPhotoValue(0x04) && !checkPhotoValue(0x02)) {
 			rl_state = r0;
-			} else if(!checkPhotoValue(0x04) && checkPhotoValue(0x02)) {
-			rl_state = r2;
-			} else {
-			rl_state = r1;
+		} else if(!checkPhotoValue(0x04) && checkPhotoValue(0x02)) {
+				rl_state = r2;
+				rightLeft = true;
+		} else {
+				rl_state = r1;
 		}
 		break;
 		case r2:
@@ -222,10 +257,11 @@ void rl_Tick(){
 	}
 	switch(rl_state) {
 		case r0:
-		//PORTC = 0x00;
+		PORTC = 0x00;
+		rightLeft = false;
 		break;
 		case r2:
-		//PORTC = 0x02;
+		PORTC = 0x01;
 		break;
 	}
 }
@@ -258,10 +294,10 @@ void du_Tick(){
 	}
 	switch(du_state) {
 		case d0:
-		//PORTC = 0x00;
+		downUp = false;
 		break;
 		case d2:
-		//PORTC = 0x04;
+		downUp = true;
 		break;
 	}
 }
@@ -294,10 +330,10 @@ void ud_Tick(){
 	}
 	switch(ud_state) {
 		case u0:
-		PORTC = 0x00;
+		upDown = false;
 		break;
 		case u2:
-		PORTC = 0x08;
+		upDown = true;
 		break;
 	}
 }
@@ -340,21 +376,21 @@ void udTask()
 
 void TextTask() {
 	for(;;) {
-/*	Set_A2D_Pin(0x02);
+	Set_A2D_Pin(0x02);
 	for(int i=0;i<100;++i);
 	unsigned short input = ADC;
 	char value[16];
 	sprintf(value, "%u", input);
 	LCD_DisplayString(1, value);
-*/
-	//PORTD = checkDirection('d') ? 0x80 : 0x00;*/
+
 /*
 	char value[16];
 	sprintf(value, "%c", GetKeypadKey());
 	LCD_DisplayString(1, value);
 */
-		enterText();
-		vTaskDelay(200);
+		//enterText();
+		//changeEntry();
+		vTaskDelay(150);
 	}
 }
 
