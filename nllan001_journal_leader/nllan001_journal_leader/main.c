@@ -51,9 +51,14 @@ void fillEntries() {
 	strcpy(entries[2], "Entry 3");
 	strcpy(entries[3], "Entry 4");
 	strcpy(entries[4], "Entry 5");
+	strcpy(entries[5], "Entry 6");
+	strcpy(entries[6], "Entry 7");
+	strcpy(entries[7], "Entry 8");
+	strcpy(entries[8], "Entry 9");
+	strcpy(entries[9], "Entry 10");
 }
 
-/* calibrates the sensors */
+/* calibrates the sensor that is passed in */
 unsigned short calibrate(unsigned char resistor) {
 	Set_A2D_Pin(resistor);
 	for(int i = 0; i < 100; ++i);
@@ -164,16 +169,22 @@ void moveCursor() {
    listening for input from the follower. it's possible i might have
    to move the moveCursor out of the function. */
 void enterText() {
-		moveCursor();
-		//unsigned char input = GetKeypadKey();
-		unsigned char input = USART_Receive(1);
-		USART_Flush(1);
-		if(input != '\0') {
+	moveCursor();
+	unsigned char input = USART_Receive(1);
+	USART_Flush(1);
+	if(input != '\0') {
+		if(input != '*') {
 			entries[currentEntry][cursorPos - 1] = input;
 			if(cursorPos < 32) cursorPos++;
+		} else {
+			photoValueL = calibrate(0x02) - 5;
+			photoValueR = calibrate(0x04) - 5;
+			photoValueD = calibrate(0x05) - 5;
+			photoValueU = calibrate(0x03) - 5;
 		}
-		LCD_DisplayString(1, entries[currentEntry]);
-		LCD_Cursor(cursorPos);
+	}
+	LCD_DisplayString(1, entries[currentEntry]);
+	LCD_Cursor(cursorPos);
 }
 
 /* change current entry depending on gestures performed */
@@ -243,8 +254,10 @@ void lr_Tick(){
 	switch(lr_state) {
 		case l0:
 		leftRight = false;
+		PORTC = 0x00;
 		break;
 		case l2:
+		PORTC = 0x02;
 		break;
 	}
 }
@@ -302,6 +315,7 @@ void du_Tick(){
 			du_state = d0;
 			} else if(!checkPhotoValue(0x05) && checkPhotoValue(0x03)) {
 			du_state = d2;
+			downUp = true;
 			} else {
 			du_state = d1;
 		}
@@ -316,9 +330,10 @@ void du_Tick(){
 	switch(du_state) {
 		case d0:
 		downUp = false;
+		//PORTC = 0x00;
 		break;
 		case d2:
-		downUp = true;
+		//PORTC = 0x04;
 		break;
 	}
 }
@@ -338,6 +353,7 @@ void ud_Tick(){
 			ud_state = u0;
 			} else if(!checkPhotoValue(0x03) && checkPhotoValue(0x05)) {
 			ud_state = u2;
+			upDown = true;
 			} else {
 			ud_state = u1;
 		}
@@ -352,9 +368,10 @@ void ud_Tick(){
 	switch(ud_state) {
 		case u0:
 		upDown = false;
+		//PORTC = 0x00;
 		break;
 		case u2:
-		upDown = true;
+		//PORTC = 0x08;
 		break;
 	}
 }
@@ -397,20 +414,20 @@ void udTask()
 
 void TextTask() {
 	for(;;) {
-	Set_A2D_Pin(0x02);
+/*	Set_A2D_Pin(0x02);
 	for(int i=0;i<100;++i);
 	unsigned short input = ADC;
 	char value[16];
 	sprintf(value, "%u", input);
 	LCD_DisplayString(1, value);
-
+*/
 /*
 	char value[16];
 	sprintf(value, "%c", GetKeypadKey());
 	LCD_DisplayString(1, value);
 */
-		//enterText();
-		//changeEntry();
+		enterText();
+		changeEntry();
 		vTaskDelay(150);
 	}
 }
@@ -449,21 +466,21 @@ int main(void)
    //Initialize components and registers
    LCD_init();
    ADC_init();
-   photoValueL = calibrate(0x02) - 10;
-   photoValueR = calibrate(0x04) - 10;
-   photoValueD = calibrate(0x05) - 10;
-   photoValueU = calibrate(0x03) - 10;
+   photoValueL = calibrate(0x02) - 5;
+   photoValueR = calibrate(0x04) - 5;
+   photoValueD = calibrate(0x05) - 5;
+   photoValueU = calibrate(0x03) - 5;
    initUSART(0);
    initUSART(1);
    
    //emptyEntries();
    fillEntries();
    //Start Tasks  
-   StartText(1);
    Startlr(1);
    Startrl(1);
    Startdu(1);
    Startud(1);
+   StartText(1);
     //RunSchedular 
    vTaskStartScheduler(); 
  
