@@ -22,7 +22,7 @@
 #include "usart_ATmega1284.h"
 
 /* constants for different thresholds concerning ac values */
-const unsigned short photoValue = 42;
+const unsigned short photoValue = 45;
 const unsigned short joystickLRLeft = 504 + 100;
 const unsigned short joystickLRRight = 504 - 100;
 const unsigned short joystickUDDown = 504 - 150;
@@ -137,66 +137,216 @@ void enterText() {
 		LCD_Cursor(cursorPos);
 }
 
-enum LEDState {INIT,L0,L1,L2,L3,L4,L5,L6,L7} led_state;
+enum LRState {initlr, l0, l1, l2} lr_state;
+enum RLState {initrl, r0, r1, r2} rl_state;
+enum DUState {initdu, d0, d1, d2} du_state;
+enum UDState {initud, u0, u1, u2} ud_state;
 
-void LEDS_Init(){
-	led_state = INIT;
+void lr_Init(){
+	lr_state = initlr;
 }
 
-void LEDS_Tick(){
-	switch(led_state) {
-		case INIT:
-		led_state = L0;
+void rl_Init(){
+	rl_state = initrl;
+}
+
+void du_Init(){
+	du_state = initdu;
+}
+
+void ud_Init(){
+	ud_state = initud;
+}
+
+void lr_Tick(){
+	switch(lr_state) {
+		case initlr:
+		lr_state = l0;
 		break;
-		case L0:
+		case l0:
 		if(checkPhotoValue(0x02)) {
-			led_state = L1;
+			lr_state = l1;
 		}
 		break;
-		case L1:
+		case l1:
 		if(!checkPhotoValue(0x02) && !checkPhotoValue(0x04)) {
-			led_state = L0;
+			lr_state = l0;
 		} else if(!checkPhotoValue(0x02) && checkPhotoValue(0x04)) {
-			led_state = L2;
+			lr_state = l2;
 		} else {
-			led_state = L1;
+			lr_state = l1;
 		}
 		break;
-		case L2:
-		led_state = L0;
+		case l2:
+		lr_state = l0;
 		break;
 		default:
-		led_state = INIT;
+		lr_state = initlr;
 		break;
 	}
-	switch(led_state) {
-		case L0:
+	switch(lr_state) {
+		case l0:
+		//PORTC = 0x00;
+		break;
+		case l2:
+		//PORTC = 0x01;
+		break;
+	}
+}
+
+void rl_Tick(){
+	switch(rl_state) {
+		case initrl:
+		rl_state = r0;
+		break;
+		case r0:
+		if(checkPhotoValue(0x04)) {
+			rl_state = r1;
+		}
+		break;
+		case r1:
+		if(!checkPhotoValue(0x04) && !checkPhotoValue(0x02)) {
+			rl_state = r0;
+			} else if(!checkPhotoValue(0x04) && checkPhotoValue(0x02)) {
+			rl_state = r2;
+			} else {
+			rl_state = r1;
+		}
+		break;
+		case r2:
+		rl_state = r0;
+		break;
+		default:
+		rl_state = initrl;
+		break;
+	}
+	switch(rl_state) {
+		case r0:
+		//PORTC = 0x00;
+		break;
+		case r2:
+		//PORTC = 0x02;
+		break;
+	}
+}
+
+void du_Tick(){
+	switch(du_state) {
+		case initdu:
+		du_state = d0;
+		break;
+		case d0:
+		if(checkPhotoValue(0x05)) {
+			du_state = d1;
+		}
+		break;
+		case d1:
+		if(!checkPhotoValue(0x05) && !checkPhotoValue(0x03)) {
+			du_state = d0;
+			} else if(!checkPhotoValue(0x05) && checkPhotoValue(0x03)) {
+			du_state = d2;
+			} else {
+			du_state = d1;
+		}
+		break;
+		case d2:
+		du_state = d0;
+		break;
+		default:
+		du_state = initdu;
+		break;
+	}
+	switch(du_state) {
+		case d0:
+		//PORTC = 0x00;
+		break;
+		case d2:
+		//PORTC = 0x04;
+		break;
+	}
+}
+
+void ud_Tick(){
+	switch(ud_state) {
+		case initud:
+		ud_state = u0;
+		break;
+		case u0:
+		if(checkPhotoValue(0x03)) {
+			ud_state = u1;
+		}
+		break;
+		case u1:
+		if(!checkPhotoValue(0x03) && !checkPhotoValue(0x05)) {
+			ud_state = u0;
+			} else if(!checkPhotoValue(0x03) && checkPhotoValue(0x05)) {
+			ud_state = u2;
+			} else {
+			ud_state = u1;
+		}
+		break;
+		case u2:
+		ud_state = u0;
+		break;
+		default:
+		ud_state = initud;
+		break;
+	}
+	switch(ud_state) {
+		case u0:
 		PORTC = 0x00;
 		break;
-		case L2:
+		case u2:
 		PORTC = 0x08;
 		break;
 	}
 }
 
-void LedSecTask()
+void lrTask()
 {
-	LEDS_Init();
+	lr_Init();
 	for(;;) { 	
-		LEDS_Tick();
+		lr_Tick();
 		vTaskDelay(150); 
 	} 
 }
 
+void rlTask()
+{
+	rl_Init();
+	for(;;) {
+		rl_Tick();
+		vTaskDelay(150);
+	}
+}
+
+void duTask()
+{
+	du_Init();
+	for(;;) {
+		du_Tick();
+		vTaskDelay(150);
+	}
+}
+
+void udTask()
+{
+	ud_Init();
+	for(;;) {
+		ud_Tick();
+		vTaskDelay(150);
+	}
+}
+
 void TextTask() {
 	for(;;) {
-	Set_A2D_Pin(0x02);
+/*	Set_A2D_Pin(0x02);
 	for(int i=0;i<100;++i);
 	unsigned short input = ADC;
 	char value[16];
 	sprintf(value, "%u", input);
 	LCD_DisplayString(1, value);
-
+*/
 	//PORTD = checkDirection('d') ? 0x80 : 0x00;*/
 /*
 	char value[16];
@@ -208,10 +358,25 @@ void TextTask() {
 	}
 }
 
-void StartSecPulse(unsigned portBASE_TYPE Priority)
+void Startlr(unsigned portBASE_TYPE Priority)
 {
-	xTaskCreate(LedSecTask, (signed portCHAR *)"LedSecTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
-}	
+	xTaskCreate(lrTask, (signed portCHAR *)"lrTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
+}
+
+void Startrl(unsigned portBASE_TYPE Priority)
+{
+	xTaskCreate(rlTask, (signed portCHAR *)"rlTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
+}
+
+void Startdu(unsigned portBASE_TYPE Priority)
+{
+	xTaskCreate(duTask, (signed portCHAR *)"duTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
+}
+
+void Startud(unsigned portBASE_TYPE Priority)
+{
+	xTaskCreate(udTask, (signed portCHAR *)"udTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
+}
 
 void StartText(unsigned portBASE_TYPE Priority)
 {
@@ -234,7 +399,10 @@ int main(void)
    fillEntries();
    //Start Tasks  
    StartText(1);
-   StartSecPulse(1);
+   Startlr(1);
+   Startrl(1);
+   Startdu(1);
+   Startud(1);
     //RunSchedular 
    vTaskStartScheduler(); 
  
