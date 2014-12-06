@@ -126,7 +126,9 @@ void moveCursor() {
    to move the moveCursor out of the function. */
 void enterText() {
 		moveCursor();
-		unsigned char input = GetKeypadKey();
+		//unsigned char input = GetKeypadKey();
+		unsigned char input = USART_Receive(1);
+		USART_Flush(1);
 		if(input != '\0') {
 			entries[currentEntry][cursorPos - 1] = input;
 			if(cursorPos < 32) cursorPos++;
@@ -175,15 +177,14 @@ void StartSecPulse(unsigned portBASE_TYPE Priority)
  
 int main(void) 
 { 
-   //DDRA = 0x00; PORTA = 0xFF;
    DDRB = 0xFF; PORTB = 0x00;
-   DDRC = 0xF0; PORTC = 0x0F;
-   DDRD = 0xFF; PORTD = 0x00;
-   
+   DDRD = 0xFA; PORTD = 0x05;
    
    //Initialize components and registers
    LCD_init();
    ADC_init();
+   initUSART(0);
+   initUSART(1);
    
    //emptyEntries();
    fillEntries();
