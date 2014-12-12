@@ -22,7 +22,25 @@
 #include "usart_ATmega1284.h"
 
 /* constants for different thresholds concerning ac values */
-const unsigned short photoValue = 120;
+unsigned short photoValueL;
+unsigned short photoValueR;
+unsigned short photoValueD;
+unsigned short photoValueU;
+
+/* flags for gestures */
+bool leftRight = false;
+bool rightLeft = false;
+bool downUp = false;
+bool upDown = false;
+
+/* calibrates the sensor that is passed in */
+unsigned short calibrate(unsigned char resistor) {
+	Set_A2D_Pin(resistor);
+	for(int i = 0; i < 100; ++i);
+	unsigned short avg = 0;
+	for(int i = 0; i < 10; ++i) avg += ADC;
+	return avg / 10;
+}
 
 /* initialize the ADC register for checking analog values */
 void ADC_init() {
@@ -40,6 +58,24 @@ void Set_A2D_Pin(unsigned char pinNum) {
 /* check the value of a specific resistor like at 0x02 (pin 2)
    and return whether it senses a shadow or not */ 
 bool checkPhotoValue(unsigned char resistor) {
+	unsigned short photoValue;
+	switch(resistor) {
+		case 0x02:
+			photoValue = photoValueL;
+			break;
+		case 0x03:
+			photoValue = photoValueU;
+			break;
+		case 0x04:
+			photoValue = photoValueR;
+			break;
+		case 0x05:
+			photoValue = photoValueD;
+			break;
+		default:
+			return false;
+			break;
+	}
 	Set_A2D_Pin(resistor);
 	for(int i = 0; i < 100; ++i);
 	unsigned short input = ADC;
@@ -50,35 +86,38 @@ bool checkPhotoValue(unsigned char resistor) {
 	}
 }
 
-enum LEDState {INIT,L0,L1,L2,L3,L4,L5,L6,L7} led_state;
+enum keyState {INIT,L0,L1,L2,L3,L4,L5,L6,L7} key_state;
 
-void LEDS_Init(){
+void key_Init() {
 	led_state = INIT;
 }
 
-void LEDS_Tick(){
+void key_Tick() {
 	unsigned char input = GetKeypadKey();
 	if(input == 'A') {
-		PORTC = 0x01;
-	} else {
-		PORTC = 0x00;
+		input = ' ';
+	} else if(input == 'B') {
+		input = '.';
+	} else if(input == '#') {
+		photoValueL = calibrate(0x02) - 4;
+		photoValueR = calibrate(0x04) - 4;
+		photoValueD = calibrate(0x05) - 4;
+		photoValueU = calibrate(0x03) - 4;
 	}
 	if(USART_IsSendReady(1)) {
-		USART_Send(GetKeypadKey(), 1);
+		USART_Send(input, 1);
 	}
 	if(USART_HasTransmitted(1)) {
 		USART_Flush(1);
 	}
 }
 
-void LedSecTask()
-{
-	LEDS_Init();
-   for(;;) 
-   { 	
-	LEDS_Tick();
-	vTaskDelay(100); 
-   } 
+void keyTask() {
+	key_Init();
+	for(;;) { 	
+		key_Tick();
+		vTaskDelay(100); 
+	} 
 }
 
 enum LRState {initlr, l0, l1, l2} lr_state;
@@ -108,15 +147,16 @@ void lr_Tick(){
 		lr_state = l0;
 		break;
 		case l0:
-		if(checkPhotoValue(0x02)) {
+		if(checkPhotoValue(0x02) && !checkPhotoValue(0x04)) {
 			lr_state = l1;
 		}
 		break;
 		case l1:
 		if(!checkPhotoValue(0x02) && !checkPhotoValue(0x04)) {
 			lr_state = l0;
-			} else if(!checkPhotoValue(0x02) && checkPhotoValue(0x04)) {
+			} else if((!checkPhotoValue(0x02) && checkPhotoValue(0x04)) || (checkPhotoValue(0x02) && (checkPhotoValue(0x04)))) {
 			lr_state = l2;
+			leftRight = true;
 			} else {
 			lr_state = l1;
 		}
@@ -130,10 +170,11 @@ void lr_Tick(){
 	}
 	switch(lr_state) {
 		case l0:
-		//PORTC = 0x00;
+		leftRight = false;
+		PORTC = 0x00;
 		break;
 		case l2:
-		//PORTC = 0x01;
+		PORTC = 0x02;
 		break;
 	}
 }
@@ -151,8 +192,9 @@ void rl_Tick(){
 		case r1:
 		if(!checkPhotoValue(0x04) && !checkPhotoValue(0x02)) {
 			rl_state = r0;
-			} else if(!checkPhotoValue(0x04) && checkPhotoValue(0x02)) {
+			} else if((!checkPhotoValue(0x04) && checkPhotoValue(0x02))) {
 			rl_state = r2;
+			rightLeft = true;
 			} else {
 			rl_state = r1;
 		}
@@ -166,10 +208,11 @@ void rl_Tick(){
 	}
 	switch(rl_state) {
 		case r0:
-		//PORTC = 0x00;
+		PORTC = 0x00;
+		rightLeft = false;
 		break;
 		case r2:
-		//PORTC = 0x02;
+		PORTC = 0x01;
 		break;
 	}
 }
@@ -189,6 +232,7 @@ void du_Tick(){
 			du_state = d0;
 			} else if(!checkPhotoValue(0x05) && checkPhotoValue(0x03)) {
 			du_state = d2;
+			downUp = true;
 			} else {
 			du_state = d1;
 		}
@@ -202,6 +246,7 @@ void du_Tick(){
 	}
 	switch(du_state) {
 		case d0:
+		downUp = false;
 		//PORTC = 0x00;
 		break;
 		case d2:
@@ -225,6 +270,7 @@ void ud_Tick(){
 			ud_state = u0;
 			} else if(!checkPhotoValue(0x03) && checkPhotoValue(0x05)) {
 			ud_state = u2;
+			upDown = true;
 			} else {
 			ud_state = u1;
 		}
@@ -238,10 +284,11 @@ void ud_Tick(){
 	}
 	switch(ud_state) {
 		case u0:
-		PORTC = 0x00;
+		upDown = false;
+		//PORTC = 0x00;
 		break;
 		case u2:
-		PORTC = 0x08;
+		//PORTC = 0x08;
 		break;
 	}
 }
@@ -282,9 +329,9 @@ void udTask()
 	}
 }
 
-void StartSecPulse(unsigned portBASE_TYPE Priority)
+void keyPulse(unsigned portBASE_TYPE Priority)
 {
-	xTaskCreate(LedSecTask, (signed portCHAR *)"LedSecTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
+	xTaskCreate(keyTask, (signed portCHAR *)"keyTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
 }	
 
 void Startlr(unsigned portBASE_TYPE Priority)
@@ -322,11 +369,15 @@ int main(void)
    
    //Initialize components and registers
    ADC_init();
+   photoValueL = calibrate(0x02) - 4;
+   photoValueR = calibrate(0x04) - 4;
+   photoValueD = calibrate(0x05) - 4;
+   photoValueU = calibrate(0x03) - 4;
    initUSART(0);
    initUSART(1);
    
    //Start Tasks  
-   StartSecPulse(1);
+   keyPulse(1);
     //RunSchedular 
    vTaskStartScheduler(); 
  
