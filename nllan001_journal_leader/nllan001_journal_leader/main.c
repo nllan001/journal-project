@@ -43,6 +43,8 @@ bool rl = false;
 bool du = false;
 bool ud = false;
 
+unsigned char receive;
+
 unsigned char cursorPos = 1;
 const unsigned char screenWidth = 16;
 const int numEntries = 10;
@@ -180,10 +182,10 @@ void moveCursor() {
    to move the moveCursor out of the function. */
 void enterText() {
 	moveCursor();
-	unsigned char input = USART_Receive(1);
-	USART_Flush(1);
-	if(input != '\0') {
-		if(input != '#') {
+	unsigned char input = receive;
+	if(input != '\0' && input != 0x01 && input != 0x02) {
+		receive = '\0';
+		if(input != '#' && input != 0x01 && input != 0x02 && input != 0x03 && input != 0x04) {
 			entries[currentEntry][cursorPos - 1] = input;
 			if(cursorPos < 32) cursorPos++;
 		} else {
@@ -191,7 +193,6 @@ void enterText() {
 			photoValueR = calibrate(0x04) - 4;
 			photoValueD = calibrate(0x05) - 4;
 			photoValueU = calibrate(0x03) - 4;
-			PORTC = 0x10;
 		}
 	}
 	LCD_DisplayString(1, entries[currentEntry]);
@@ -214,13 +215,11 @@ void changeEntry() {
 }
 
 /* check usart 0 for flags */
-void check() {
-	unsigned char check = USART_Receive(0);
-	USART_Flush(0);
-	lr = (check == 0x01);
-	rl = (check == 0x02);
-	du = (check == 0x03);
-	ud = (check == 0x04);
+void checkU() {
+	unsigned char check = receive;
+	if((lr = (check == 0x01)) || (rl = (check == 0x02)) || (du = (check == 0x03)) || (ud = (check == 0x04))) {
+		receive = '\0';
+	}
 }
 
 /* The following series of state machines check for gestures
@@ -253,10 +252,8 @@ void lr_Tick(){
 		lr_state = l0;
 		break;
 		case l0:
-		if(lr) {
+		if(checkPhotoValue(0x02)) {
 			lr_state = l1;
-			leftRight = true;
-			lr = 0x00;
 		}
 		break;
 		case l1:
@@ -269,34 +266,22 @@ void lr_Tick(){
 	switch(lr_state) {
 		case l0:
 		leftRight = false;
-		PORTC = 0x00;
 		break;
 		case l1:
-		PORTC = 0x02;
 		break;
 	}
 }
 
 void rl_Tick(){
-	volatile unsigned char input = USART_Receive(0);
-	USART_Flush(0);
 	switch(rl_state) {
 		case initrl:
 		rl_state = r0;
 		break;
 		case r0:
-		/*
 		if(checkPhotoValue(0x04)) {
 			rl_state = r1;
 		}
-		*/
-		if(input == 0x02) {
-			rl_state = r2;
-			rightLeft = true;
-			input = 0x00;
-		}
 		break;
-		/*
 		case r1:
 		if(!checkPhotoValue(0x04) && !checkPhotoValue(0x02)) {
 			rl_state = r0;
@@ -307,7 +292,6 @@ void rl_Tick(){
 				rl_state = r1;
 		}
 		break;
-		*/
 		case r2:
 		rl_state = r0;
 		break;
@@ -317,11 +301,9 @@ void rl_Tick(){
 	}
 	switch(rl_state) {
 		case r0:
-		PORTC = 0x00;
 		rightLeft = false;
 		break;
 		case r2:
-		PORTC = 0x01;
 		break;
 	}
 }
@@ -441,10 +423,10 @@ void udTask()
 void TextTask() {
 	for(;;) {
 /*
-	Set_A2D_Pin(0x02);
+	Set_A2D_Pin(0x00);
 	for(int i=0;i<100;++i);
 	unsigned short input1 = ADC;
-	Set_A2D_Pin(0x04);
+	Set_A2D_Pin(0x01);
 	for(int i=0;i<100;++i);
 	unsigned short input2 = ADC;
 	char value1[16], value2[16];
@@ -459,10 +441,21 @@ void TextTask() {
 	sprintf(value, "%c", GetKeypadKey());
 	LCD_DisplayString(1, value);
 */
-		
+		//receive = USART_Receive(1);
 		enterText();
 		changeEntry();
-		check();
+		checkU();
+		//USART_Flush(1);
+		vTaskDelay(100);
+	}
+}
+
+void ReceiveTask() {
+	for(;;) {
+		receive = USART_Receive(1);
+		if(USART_HasReceived(1)) {
+			USART_Flush(1);
+		}
 		vTaskDelay(100);
 	}
 }
@@ -491,6 +484,11 @@ void StartText(unsigned portBASE_TYPE Priority)
 {
 	xTaskCreate(TextTask, (signed portCHAR *)"TextTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
 }
+
+void StartRec(unsigned portBASE_TYPE Priority)
+{
+	xTaskCreate(ReceiveTask, (signed portCHAR *)"ReceiveTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
+}
  
 int main(void) 
 { 
@@ -505,7 +503,6 @@ int main(void)
    photoValueR = calibrate(0x04) - 4;
    photoValueD = calibrate(0x05) - 4;
    photoValueU = calibrate(0x03) - 4;
-   initUSART(0);
    initUSART(1);
    
    //emptyEntries();
@@ -518,6 +515,7 @@ int main(void)
    Startud(1);
    */
    StartText(1);
+   StartRec(1);
     //RunSchedular 
    vTaskStartScheduler(); 
  

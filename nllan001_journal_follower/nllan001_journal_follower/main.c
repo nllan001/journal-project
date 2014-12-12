@@ -110,8 +110,19 @@ void key_Tick() {
 		photoValueD = calibrate(0x05) - 4;
 		photoValueU = calibrate(0x03) - 4;
 	}
+	if(input != '\0') {
+		if(USART_IsSendReady(1)) {
+			USART_Send(input, 1);
+		}
+		if(USART_HasTransmitted(1)) {
+			USART_Flush(1);
+		}
+	}
+}
+
+void sendDir(unsigned char sendValue) {
 	if(USART_IsSendReady(1)) {
-		USART_Send(input, 1);
+		USART_Send(sendValue, 1);
 	}
 	if(USART_HasTransmitted(1)) {
 		USART_Flush(1);
@@ -160,15 +171,9 @@ void lr_Tick(){
 		case l1:
 		if(!checkPhotoValue(0x02) && !checkPhotoValue(0x04)) {
 			lr_state = l0;
-			} else if((!checkPhotoValue(0x02) && checkPhotoValue(0x04)) || (checkPhotoValue(0x02) && (checkPhotoValue(0x04)))) {
+			} else if((!checkPhotoValue(0x02) && checkPhotoValue(0x04))) {
 			lr_state = l2;
-			if(USART_IsSendReady(0)) {
-				USART_Send(lr, 0);
-			}
-			if(USART_HasTransmitted(0)) {
-				USART_Flush(0);
-			}
-			//leftRight = true;
+			sendDir(lr);
 			} else {
 			lr_state = l1;
 		}
@@ -196,7 +201,7 @@ void rl_Tick(){
 		rl_state = r0;
 		break;
 		case r0:
-		if(checkPhotoValue(0x04)) {
+		if(checkPhotoValue(0x04) && !checkPhotoValue(0x02)) {
 			rl_state = r1;
 		}
 		break;
@@ -205,13 +210,7 @@ void rl_Tick(){
 			rl_state = r0;
 			} else if((!checkPhotoValue(0x04) && checkPhotoValue(0x02))) {
 			rl_state = r2;
-			if(USART_IsSendReady(0)) {
-				USART_Send(rl, 0);
-			}
-			if(USART_HasTransmitted(0)) {
-				USART_Flush(0);
-			}
-			//rightLeft = true;
+			sendDir(rl);
 			} else {
 			rl_state = r1;
 		}
@@ -384,14 +383,13 @@ int main(void)
    photoValueR = calibrate(0x04) - 4;
    photoValueD = calibrate(0x05) - 4;
    photoValueU = calibrate(0x03) - 4;
-   initUSART(0);
    initUSART(1);
    
    //Start Tasks  
    keyPulse(1);
    Startlr(1);
    Startrl(1);
-    //RunSchedular 
+	//RunSchedular 
    vTaskStartScheduler(); 
  
    return 0; 
