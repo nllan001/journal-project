@@ -37,6 +37,12 @@ bool rightLeft = false;
 bool downUp = false;
 bool upDown = false;
 
+/* direction flags */
+bool lr = false;
+bool rl = false;
+bool du = false;
+bool ud = false;
+
 unsigned char cursorPos = 1;
 const unsigned char screenWidth = 16;
 const int numEntries = 10;
@@ -194,17 +200,27 @@ void enterText() {
 
 /* change current entry depending on gestures performed */
 void changeEntry() {
-	if(rightLeft) {
+	if(rl) {
 		if(currentEntry < numEntries - 1) {
 			currentEntry++;
 			cursorPos = 1;
 		}
-	} else if(leftRight) {
+	} else if(lr) {
 		if(currentEntry > 0) {
 			currentEntry--;
 			cursorPos = 1;
 		}
 	}
+}
+
+/* check usart 0 for flags */
+void check() {
+	unsigned char check = USART_Receive(0);
+	USART_Flush(0);
+	lr = (check == 0x01);
+	rl = (check == 0x02);
+	du = (check == 0x03);
+	ud = (check == 0x04);
 }
 
 /* The following series of state machines check for gestures
@@ -237,21 +253,13 @@ void lr_Tick(){
 		lr_state = l0;
 		break;
 		case l0:
-		if(checkPhotoValue(0x02) && !checkPhotoValue(0x04)) {
+		if(lr) {
 			lr_state = l1;
+			leftRight = true;
+			lr = 0x00;
 		}
 		break;
 		case l1:
-		if(!checkPhotoValue(0x02) && !checkPhotoValue(0x04)) {
-				lr_state = l0;
-		} else if((!checkPhotoValue(0x02) && checkPhotoValue(0x04)) || (checkPhotoValue(0x02) && (checkPhotoValue(0x04)))) {
-				lr_state = l2;
-				leftRight = true;
-		} else {
-				lr_state = l1;
-		}
-		break;
-		case l2:
 		lr_state = l0;
 		break;
 		default:
@@ -263,22 +271,32 @@ void lr_Tick(){
 		leftRight = false;
 		PORTC = 0x00;
 		break;
-		case l2:
+		case l1:
 		PORTC = 0x02;
 		break;
 	}
 }
 
 void rl_Tick(){
+	volatile unsigned char input = USART_Receive(0);
+	USART_Flush(0);
 	switch(rl_state) {
 		case initrl:
 		rl_state = r0;
 		break;
 		case r0:
+		/*
 		if(checkPhotoValue(0x04)) {
 			rl_state = r1;
 		}
+		*/
+		if(input == 0x02) {
+			rl_state = r2;
+			rightLeft = true;
+			input = 0x00;
+		}
 		break;
+		/*
 		case r1:
 		if(!checkPhotoValue(0x04) && !checkPhotoValue(0x02)) {
 			rl_state = r0;
@@ -289,6 +307,7 @@ void rl_Tick(){
 				rl_state = r1;
 		}
 		break;
+		*/
 		case r2:
 		rl_state = r0;
 		break;
@@ -406,7 +425,7 @@ void duTask()
 	du_Init();
 	for(;;) {
 		du_Tick();
-		vTaskDelay(150);
+		vTaskDelay(100);
 	}
 }
 
@@ -415,7 +434,7 @@ void udTask()
 	ud_Init();
 	for(;;) {
 		ud_Tick();
-		vTaskDelay(150);
+		vTaskDelay(100);
 	}
 }
 
@@ -443,6 +462,7 @@ void TextTask() {
 		
 		enterText();
 		changeEntry();
+		check();
 		vTaskDelay(100);
 	}
 }
@@ -491,10 +511,12 @@ int main(void)
    //emptyEntries();
    fillEntries();
    //Start Tasks  
+   /*
    Startlr(1);
    Startrl(1);
    Startdu(1);
    Startud(1);
+   */
    StartText(1);
     //RunSchedular 
    vTaskStartScheduler(); 

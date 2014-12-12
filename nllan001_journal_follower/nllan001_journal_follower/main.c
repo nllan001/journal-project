@@ -33,6 +33,12 @@ bool rightLeft = false;
 bool downUp = false;
 bool upDown = false;
 
+/* direction flags */
+unsigned char lr = 0x01;
+unsigned char rl = 0x02;
+unsigned char du = 0x03;
+unsigned char ud = 0x04;
+
 /* calibrates the sensor that is passed in */
 unsigned short calibrate(unsigned char resistor) {
 	Set_A2D_Pin(resistor);
@@ -89,7 +95,7 @@ bool checkPhotoValue(unsigned char resistor) {
 enum keyState {INIT,L0,L1,L2,L3,L4,L5,L6,L7} key_state;
 
 void key_Init() {
-	led_state = INIT;
+	key_state = INIT;
 }
 
 void key_Tick() {
@@ -156,7 +162,13 @@ void lr_Tick(){
 			lr_state = l0;
 			} else if((!checkPhotoValue(0x02) && checkPhotoValue(0x04)) || (checkPhotoValue(0x02) && (checkPhotoValue(0x04)))) {
 			lr_state = l2;
-			leftRight = true;
+			if(USART_IsSendReady(0)) {
+				USART_Send(lr, 0);
+			}
+			if(USART_HasTransmitted(0)) {
+				USART_Flush(0);
+			}
+			//leftRight = true;
 			} else {
 			lr_state = l1;
 		}
@@ -170,11 +182,10 @@ void lr_Tick(){
 	}
 	switch(lr_state) {
 		case l0:
-		leftRight = false;
 		PORTC = 0x00;
 		break;
 		case l2:
-		PORTC = 0x02;
+		PORTC = 0x01;
 		break;
 	}
 }
@@ -194,7 +205,13 @@ void rl_Tick(){
 			rl_state = r0;
 			} else if((!checkPhotoValue(0x04) && checkPhotoValue(0x02))) {
 			rl_state = r2;
-			rightLeft = true;
+			if(USART_IsSendReady(0)) {
+				USART_Send(rl, 0);
+			}
+			if(USART_HasTransmitted(0)) {
+				USART_Flush(0);
+			}
+			//rightLeft = true;
 			} else {
 			rl_state = r1;
 		}
@@ -209,10 +226,9 @@ void rl_Tick(){
 	switch(rl_state) {
 		case r0:
 		PORTC = 0x00;
-		rightLeft = false;
 		break;
 		case r2:
-		PORTC = 0x01;
+		PORTC = 0x02;
 		break;
 	}
 }
@@ -298,7 +314,7 @@ void lrTask()
 	lr_Init();
 	for(;;) {
 		lr_Tick();
-		vTaskDelay(150);
+		vTaskDelay(100);
 	}
 }
 
@@ -307,7 +323,7 @@ void rlTask()
 	rl_Init();
 	for(;;) {
 		rl_Tick();
-		vTaskDelay(150);
+		vTaskDelay(100);
 	}
 }
 
@@ -353,11 +369,6 @@ void Startud(unsigned portBASE_TYPE Priority)
 {
 	xTaskCreate(udTask, (signed portCHAR *)"udTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
 }
-
-void StartText(unsigned portBASE_TYPE Priority)
-{
-	xTaskCreate(TextTask, (signed portCHAR *)"TextTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
-}
  
 int main(void) 
 { 
@@ -378,6 +389,8 @@ int main(void)
    
    //Start Tasks  
    keyPulse(1);
+   Startlr(1);
+   Startrl(1);
     //RunSchedular 
    vTaskStartScheduler(); 
  
