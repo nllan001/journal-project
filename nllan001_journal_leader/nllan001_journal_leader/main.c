@@ -37,6 +37,10 @@ bool rightLeft = false;
 bool downUp = false;
 bool upDown = false;
 
+/* flag for menu */
+int location = 1;
+bool sleep = false;
+
 /* direction flags */
 bool lr = false;
 bool rl = false;
@@ -59,7 +63,7 @@ char menu[1][100];
 
 /* fills entries for checking purposes */
 void fillEntries() {
-	strcpy(menu[0], "Main Menu:      Sensors^vEntries");
+	strcpy(menu[0], "Journal Menu:   v Entries");
 	strcpy(entries[0], "Entry 1");
 	strcpy(entries[1], "Entry 2");
 	strcpy(entries[2], "Entry 3");
@@ -187,7 +191,7 @@ void enterText() {
 	unsigned char input = receive;
 	if(input != '\0' && input != 0x01 && input != 0x02) {
 		receive = '\0';
-		if(input != '#' && input != 0x01 && input != 0x02 && input != 0x03 && input != 0x04) {
+		if(input != '#' && input != 0x01 && input != 0x02 && input != 0x03 && input != 0x04 && input != 0x05 && input != 0x06) {
 			entries[currentEntry][cursorPos - 1] = input;
 			if(cursorPos < 32) cursorPos++;
 		} else if(input == '#') {
@@ -197,8 +201,17 @@ void enterText() {
 			photoValueU = calibrate(0x03) - 2;
 		}
 	}
-	LCD_DisplayString(1, entries[currentEntry]);
-	LCD_Cursor(cursorPos);
+	if(sleep) {
+		LCD_DisplayString(1, "");
+		LCD_Cursor(1);
+	} else if(location == 1) {
+		LCD_DisplayString(1, menu);
+		LCD_Cursor(1);
+	} else if(location == 2) {
+		LCD_DisplayString(1, entries[currentEntry]);
+		LCD_Cursor(cursorPos);
+	}
+	
 }
 
 /* change current entry depending on gestures performed */
@@ -214,14 +227,18 @@ void changeEntry() {
 			cursorPos = 1;
 		}
 	} else if(ud) {
-		PORTC = 0x01;
+		if(location > 1) {
+			location--;
+		}
 	} else if(du) {
-		PORTC = 0x02;
-	} else if(ud2) {
-		PORTC = 0x04;
+		if(location < 2) {
+			location++;
+		}
+	} /*else if(ud2) {
+		sleep = true;
 	} else if(du2) {
-		PORTC = 0x08;
-	} else {
+		sleep = false;
+	} */else {
 		PORTC = 0x00;
 	}
 }
@@ -229,7 +246,7 @@ void changeEntry() {
 /* check usart 0 for flags */
 void checkU() {
 	unsigned char check = receive;
-	if((lr = (check == 0x01)) || (rl = (check == 0x02)) || (du = (check == 0x03)) || (ud = (check == 0x04)) || (du2 = (check == 0x05)) || (ud2 - (check == 0x06))) {
+	if((lr = (check == 0x01)) || (rl = (check == 0x02)) || (du = (check == 0x03)) || (ud = (check == 0x04)) || (du2 = (check == 0x05)) || (ud2 = (check == 0x06))) {
 		receive = '\0';
 	}
 }
@@ -287,10 +304,10 @@ void lr_Tick(){
 	switch(lr_state) {
 		case l0:
 		leftRight = false;
-		PORTC = 0x00;
+		//PORTC = 0x00;
 		break;
 		case l2:
-		PORTC = 0x01;
+		//PORTC = 0x01;
 		break;
 	}
 }
@@ -325,10 +342,10 @@ void rl_Tick(){
 	switch(rl_state) {
 		case r0:
 		rightLeft = false;
-		PORTC = 0x00;
+		//PORTC = 0x00;
 		break;
 		case r2:
-		PORTC = 0x02;
+		//PORTC = 0x02;
 		break;
 	}
 }
@@ -363,10 +380,10 @@ void du_Tick(){
 	switch(du_state) {
 		case d0:
 		//downUp = false;
-		PORTC = 0x00;
+		//PORTC = 0x00;
 		break;
 		case d2:
-		PORTC = 0x04;
+		//PORTC = 0x04;
 		break;
 	}
 }
@@ -401,10 +418,10 @@ void ud_Tick(){
 	switch(ud_state) {
 		case u0:
 		upDown = false;
-		PORTC = 0x00;
+		//PORTC = 0x00;
 		break;
 		case u2:
-		PORTC = 0x08;
+		//PORTC = 0x08;
 		break;
 	}
 }
@@ -460,7 +477,7 @@ void ReceiveTask() {
 		if(USART_HasReceived(1)) {
 			USART_Flush(1);
 		}
-		vTaskDelay(100);
+		vTaskDelay(25);
 	}
 }
 
