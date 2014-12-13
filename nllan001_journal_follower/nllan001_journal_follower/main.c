@@ -26,6 +26,8 @@ unsigned short photoValueL;
 unsigned short photoValueR;
 unsigned short photoValueD;
 unsigned short photoValueU;
+unsigned short photoValueD2;
+unsigned short photoValueU2;
 
 /* flags for gestures */
 bool leftRight = false;
@@ -38,6 +40,8 @@ unsigned char lr = 0x01;
 unsigned char rl = 0x02;
 unsigned char du = 0x03;
 unsigned char ud = 0x04;
+unsigned char du2 = 0x05;
+unsigned char ud2 = 0x06;
 
 /* calibrates the sensor that is passed in */
 unsigned short calibrate(unsigned char resistor) {
@@ -69,14 +73,20 @@ bool checkPhotoValue(unsigned char resistor) {
 		case 0x02:
 			photoValue = photoValueL;
 			break;
-		case 0x03:
+		case 0x00:
 			photoValue = photoValueU;
 			break;
 		case 0x04:
 			photoValue = photoValueR;
 			break;
-		case 0x05:
+		case 0x01:
 			photoValue = photoValueD;
+			break;
+		case 0x05:
+			photoValue = photoValueU2;
+			break;
+		case 0x06:
+			photoValue = photoValueD2;
 			break;
 		default:
 			return false;
@@ -107,8 +117,10 @@ void key_Tick() {
 	} else if(input == '#') {
 		photoValueL = calibrate(0x02) - 4;
 		photoValueR = calibrate(0x04) - 4;
-		photoValueD = calibrate(0x05) - 4;
-		photoValueU = calibrate(0x03) - 4;
+		photoValueD = calibrate(0x01) - 4;
+		photoValueU = calibrate(0x00) - 4;
+		photoValueD2 = calibrate(0x06) - 4;
+		photoValueU2 = calibrate(0x05) - 4;
 	}
 	if(input != '\0') {
 		if(USART_IsSendReady(1)) {
@@ -141,6 +153,8 @@ enum LRState {initlr, l0, l1, l2} lr_state;
 enum RLState {initrl, r0, r1, r2} rl_state;
 enum DUState {initdu, d0, d1, d2} du_state;
 enum UDState {initud, u0, u1, u2} ud_state;
+enum DU2State {initdu2, d20, d21, d22} du2_state;
+enum UD2State {initud2, u20, u21, u22} ud2_state;
 
 void lr_Init(){
 	lr_state = initlr;
@@ -156,6 +170,14 @@ void du_Init(){
 
 void ud_Init(){
 	ud_state = initud;
+}
+
+void du2_Init(){
+	du2_state = initdu2;
+}
+
+void ud2_Init(){
+	ud2_state = initud2;
 }
 
 void lr_Tick(){
@@ -187,10 +209,10 @@ void lr_Tick(){
 	}
 	switch(lr_state) {
 		case l0:
-		PORTC = 0x00;
+		//PORTC = 0x00;
 		break;
 		case l2:
-		PORTC = 0x01;
+		//PORTC = 0x01;
 		break;
 	}
 }
@@ -224,10 +246,10 @@ void rl_Tick(){
 	}
 	switch(rl_state) {
 		case r0:
-		PORTC = 0x00;
+		//PORTC = 0x00;
 		break;
 		case r2:
-		PORTC = 0x02;
+		//PORTC = 0x02;
 		break;
 	}
 }
@@ -238,16 +260,16 @@ void du_Tick(){
 		du_state = d0;
 		break;
 		case d0:
-		if(checkPhotoValue(0x05)) {
+		if(checkPhotoValue(0x01) && !checkPhotoValue(0x00)) {
 			du_state = d1;
 		}
 		break;
 		case d1:
-		if(!checkPhotoValue(0x05) && !checkPhotoValue(0x03)) {
+		if(!checkPhotoValue(0x01) && !checkPhotoValue(0x00)) {
 			du_state = d0;
-			} else if(!checkPhotoValue(0x05) && checkPhotoValue(0x03)) {
+			} else if(!checkPhotoValue(0x01) && checkPhotoValue(0x00)) {
 			du_state = d2;
-			downUp = true;
+			sendDir(du);
 			} else {
 			du_state = d1;
 		}
@@ -261,7 +283,6 @@ void du_Tick(){
 	}
 	switch(du_state) {
 		case d0:
-		downUp = false;
 		//PORTC = 0x00;
 		break;
 		case d2:
@@ -276,16 +297,16 @@ void ud_Tick(){
 		ud_state = u0;
 		break;
 		case u0:
-		if(checkPhotoValue(0x03)) {
+		if(checkPhotoValue(0x00) && !checkPhotoValue(0x01)) {
 			ud_state = u1;
 		}
 		break;
 		case u1:
-		if(!checkPhotoValue(0x03) && !checkPhotoValue(0x05)) {
+		if(!checkPhotoValue(0x00) && !checkPhotoValue(0x01)) {
 			ud_state = u0;
-			} else if(!checkPhotoValue(0x03) && checkPhotoValue(0x05)) {
+			} else if(!checkPhotoValue(0x00) && checkPhotoValue(0x01)) {
 			ud_state = u2;
-			upDown = true;
+			sendDir(ud);
 			} else {
 			ud_state = u1;
 		}
@@ -299,11 +320,84 @@ void ud_Tick(){
 	}
 	switch(ud_state) {
 		case u0:
-		upDown = false;
 		//PORTC = 0x00;
 		break;
 		case u2:
 		//PORTC = 0x08;
+		break;
+	}
+}
+
+void du2_Tick(){
+	switch(du2_state) {
+		case initdu2:
+		du2_state = d20;
+		break;
+		case d20:
+		if(checkPhotoValue(0x06) && !checkPhotoValue(0x05)) {
+			du2_state = d21;
+		}
+		break;
+		case d21:
+		if(!checkPhotoValue(0x06) && !checkPhotoValue(0x05)) {
+			du2_state = d20;
+			} else if(!checkPhotoValue(0x06) && checkPhotoValue(0x05)) {
+			du2_state = d22;
+			sendDir(du2);
+			} else {
+			du2_state = d21;
+		}
+		break;
+		case d22:
+		du2_state = d20;
+		break;
+		default:
+		du2_state = initdu2;
+		break;
+	}
+	switch(du2_state) {
+		case d20:
+		PORTC = 0x00;
+		break;
+		case d22:
+		PORTC = 0x04;
+		break;
+	}
+}
+
+void ud2_Tick(){
+	switch(ud2_state) {
+		case initud2:
+		ud2_state = u20;
+		break;
+		case u20:
+		if(checkPhotoValue(0x05) && !checkPhotoValue(0x06)) {
+			ud2_state = u21;
+		}
+		break;
+		case u21:
+		if(!checkPhotoValue(0x05) && !checkPhotoValue(0x06)) {
+			ud2_state = u20;
+			} else if(!checkPhotoValue(0x05) && checkPhotoValue(0x06)) {
+			ud2_state = u22;
+			sendDir(ud2);
+			} else {
+			ud2_state = u21;
+		}
+		break;
+		case u22:
+		ud2_state = u20;
+		break;
+		default:
+		ud2_state = initud2;
+		break;
+	}
+	switch(ud2_state) {
+		case u20:
+		PORTC = 0x00;
+		break;
+		case u22:
+		PORTC = 0x08;
 		break;
 	}
 }
@@ -331,7 +425,7 @@ void duTask()
 	du_Init();
 	for(;;) {
 		du_Tick();
-		vTaskDelay(150);
+		vTaskDelay(100);
 	}
 }
 
@@ -340,7 +434,25 @@ void udTask()
 	ud_Init();
 	for(;;) {
 		ud_Tick();
-		vTaskDelay(150);
+		vTaskDelay(100);
+	}
+}
+
+void du2Task()
+{
+	du2_Init();
+	for(;;) {
+		du2_Tick();
+		vTaskDelay(100);
+	}
+}
+
+void ud2Task()
+{
+	ud2_Init();
+	for(;;) {
+		ud2_Tick();
+		vTaskDelay(100);
 	}
 }
 
@@ -368,6 +480,16 @@ void Startud(unsigned portBASE_TYPE Priority)
 {
 	xTaskCreate(udTask, (signed portCHAR *)"udTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
 }
+
+void Startdu2(unsigned portBASE_TYPE Priority)
+{
+	xTaskCreate(du2Task, (signed portCHAR *)"du2Task", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
+}
+
+void Startud2(unsigned portBASE_TYPE Priority)
+{
+	xTaskCreate(ud2Task, (signed portCHAR *)"ud2Task", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
+}
  
 int main(void) 
 { 
@@ -381,14 +503,20 @@ int main(void)
    ADC_init();
    photoValueL = calibrate(0x02) - 4;
    photoValueR = calibrate(0x04) - 4;
-   photoValueD = calibrate(0x05) - 4;
-   photoValueU = calibrate(0x03) - 4;
+   photoValueD = calibrate(0x01) - 4;
+   photoValueU = calibrate(0x00) - 4;
+   photoValueD2 = calibrate(0x06) - 4;
+   photoValueU2 = calibrate(0x05) - 4;
    initUSART(1);
    
    //Start Tasks  
    keyPulse(1);
    Startlr(1);
    Startrl(1);
+   Startdu(1);
+   Startud(1);
+   Startdu2(1);
+   Startud2(1);
 	//RunSchedular 
    vTaskStartScheduler(); 
  

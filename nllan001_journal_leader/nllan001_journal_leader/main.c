@@ -42,6 +42,8 @@ bool lr = false;
 bool rl = false;
 bool du = false;
 bool ud = false;
+bool du2 = false;
+bool ud2 = false;
 
 unsigned char receive;
 
@@ -188,11 +190,11 @@ void enterText() {
 		if(input != '#' && input != 0x01 && input != 0x02 && input != 0x03 && input != 0x04) {
 			entries[currentEntry][cursorPos - 1] = input;
 			if(cursorPos < 32) cursorPos++;
-		} else {
-			photoValueL = calibrate(0x02) - 4;
-			photoValueR = calibrate(0x04) - 4;
-			photoValueD = calibrate(0x05) - 4;
-			photoValueU = calibrate(0x03) - 4;
+		} else if(input == '#') {
+			photoValueL = calibrate(0x02) - 2;
+			photoValueR = calibrate(0x04) - 2;
+			photoValueD = calibrate(0x05) - 2;
+			photoValueU = calibrate(0x03) - 2;
 		}
 	}
 	LCD_DisplayString(1, entries[currentEntry]);
@@ -211,13 +213,23 @@ void changeEntry() {
 			currentEntry--;
 			cursorPos = 1;
 		}
+	} else if(ud) {
+		PORTC = 0x01;
+	} else if(du) {
+		PORTC = 0x02;
+	} else if(ud2) {
+		PORTC = 0x04;
+	} else if(du2) {
+		PORTC = 0x08;
+	} else {
+		PORTC = 0x00;
 	}
 }
 
 /* check usart 0 for flags */
 void checkU() {
 	unsigned char check = receive;
-	if((lr = (check == 0x01)) || (rl = (check == 0x02)) || (du = (check == 0x03)) || (ud = (check == 0x04))) {
+	if((lr = (check == 0x01)) || (rl = (check == 0x02)) || (du = (check == 0x03)) || (ud = (check == 0x04)) || (du2 = (check == 0x05)) || (ud2 - (check == 0x06))) {
 		receive = '\0';
 	}
 }
@@ -252,13 +264,22 @@ void lr_Tick(){
 		lr_state = l0;
 		break;
 		case l0:
-		if(checkPhotoValue(0x02)) {
+		if(checkPhotoValue(0x02) && !checkPhotoValue(0x04)) {
 			lr_state = l1;
 		}
 		break;
 		case l1:
-		lr_state = l0;
+		if(!checkPhotoValue(0x02) && !checkPhotoValue(0x04)) {
+			lr_state = l0;
+			} else if((!checkPhotoValue(0x02) && checkPhotoValue(0x04))) {
+			lr_state = l2;
+			leftRight = true;
+			} else {
+			lr_state = l1;
+		}
 		break;
+		case l2:
+		lr_state = l0;
 		default:
 		lr_state = initlr;
 		break;
@@ -266,8 +287,10 @@ void lr_Tick(){
 	switch(lr_state) {
 		case l0:
 		leftRight = false;
+		PORTC = 0x00;
 		break;
-		case l1:
+		case l2:
+		PORTC = 0x01;
 		break;
 	}
 }
@@ -278,7 +301,7 @@ void rl_Tick(){
 		rl_state = r0;
 		break;
 		case r0:
-		if(checkPhotoValue(0x04)) {
+		if(checkPhotoValue(0x04) && !checkPhotoValue(0x02)) {
 			rl_state = r1;
 		}
 		break;
@@ -302,8 +325,10 @@ void rl_Tick(){
 	switch(rl_state) {
 		case r0:
 		rightLeft = false;
+		PORTC = 0x00;
 		break;
 		case r2:
+		PORTC = 0x02;
 		break;
 	}
 }
@@ -314,7 +339,7 @@ void du_Tick(){
 		du_state = d0;
 		break;
 		case d0:
-		if(checkPhotoValue(0x05)) {
+		if(checkPhotoValue(0x05) && !checkPhotoValue(0x03)) {
 			du_state = d1;
 		}
 		break;
@@ -323,7 +348,7 @@ void du_Tick(){
 			du_state = d0;
 			} else if(!checkPhotoValue(0x05) && checkPhotoValue(0x03)) {
 			du_state = d2;
-			downUp = true;
+			//downUp = true;
 			} else {
 			du_state = d1;
 		}
@@ -337,11 +362,11 @@ void du_Tick(){
 	}
 	switch(du_state) {
 		case d0:
-		downUp = false;
-		//PORTC = 0x00;
+		//downUp = false;
+		PORTC = 0x00;
 		break;
 		case d2:
-		//PORTC = 0x04;
+		PORTC = 0x04;
 		break;
 	}
 }
@@ -352,7 +377,7 @@ void ud_Tick(){
 		ud_state = u0;
 		break;
 		case u0:
-		if(checkPhotoValue(0x03)) {
+		if(checkPhotoValue(0x03) && !checkPhotoValue(0x05)) {
 			ud_state = u1;
 		}
 		break;
@@ -376,10 +401,10 @@ void ud_Tick(){
 	switch(ud_state) {
 		case u0:
 		upDown = false;
-		//PORTC = 0x00;
+		PORTC = 0x00;
 		break;
 		case u2:
-		//PORTC = 0x08;
+		PORTC = 0x08;
 		break;
 	}
 }
@@ -389,7 +414,7 @@ void lrTask()
 	lr_Init();
 	for(;;) { 	
 		lr_Tick();
-		vTaskDelay(100); 
+		vTaskDelay(50); 
 	} 
 }
 
@@ -398,7 +423,7 @@ void rlTask()
 	rl_Init();
 	for(;;) {
 		rl_Tick();
-		vTaskDelay(100);
+		vTaskDelay(50);
 	}
 }
 
@@ -407,7 +432,7 @@ void duTask()
 	du_Init();
 	for(;;) {
 		du_Tick();
-		vTaskDelay(100);
+		vTaskDelay(50);
 	}
 }
 
@@ -416,36 +441,15 @@ void udTask()
 	ud_Init();
 	for(;;) {
 		ud_Tick();
-		vTaskDelay(100);
+		vTaskDelay(50);
 	}
 }
 
 void TextTask() {
 	for(;;) {
-/*
-	Set_A2D_Pin(0x00);
-	for(int i=0;i<100;++i);
-	unsigned short input1 = ADC;
-	Set_A2D_Pin(0x01);
-	for(int i=0;i<100;++i);
-	unsigned short input2 = ADC;
-	char value1[16], value2[16];
-	sprintf(value1, "%u", input1);
-	sprintf(value2, "%u", input2);
-	strcat(value1, " ");
-	strcat(value1, value2);
-	LCD_DisplayString(1, value1);
-*/
-/*
-	char value[16];
-	sprintf(value, "%c", GetKeypadKey());
-	LCD_DisplayString(1, value);
-*/
-		//receive = USART_Receive(1);
 		enterText();
 		changeEntry();
 		checkU();
-		//USART_Flush(1);
 		vTaskDelay(100);
 	}
 }
@@ -499,21 +503,14 @@ int main(void)
    //Initialize components and registers
    LCD_init();
    ADC_init();
-   photoValueL = calibrate(0x02) - 4;
-   photoValueR = calibrate(0x04) - 4;
-   photoValueD = calibrate(0x05) - 4;
-   photoValueU = calibrate(0x03) - 4;
+   photoValueL = calibrate(0x02) - 2;
+   photoValueR = calibrate(0x04) - 2;
    initUSART(1);
    
-   //emptyEntries();
    fillEntries();
    //Start Tasks  
-   /*
    Startlr(1);
    Startrl(1);
-   Startdu(1);
-   Startud(1);
-   */
    StartText(1);
    StartRec(1);
     //RunSchedular 
