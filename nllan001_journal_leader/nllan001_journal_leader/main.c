@@ -31,12 +31,6 @@ const unsigned short joystickLRRight = 504 - 100;
 const unsigned short joystickUDDown = 504 - 150;
 const unsigned short joystickUDUp = 504 + 150;
 
-/* flags for gestures */
-bool leftRight = false;
-bool rightLeft = false;
-bool downUp = false;
-bool upDown = false;
-
 /* flag for menu */
 int location = 1;
 bool sleep = false;
@@ -189,7 +183,7 @@ void moveCursor() {
 void enterText() {
 	moveCursor();
 	unsigned char input = receive;
-	if(input != '\0' && input != 0x01 && input != 0x02) {
+	if(input != '\0' && input != 0x01 && input != 0x02 && input != 0x03 && input != 0x04 && input != 0x05 && input != 0x06) {
 		receive = '\0';
 		if(input != '#' && input != 0x01 && input != 0x02 && input != 0x03 && input != 0x04 && input != 0x05 && input != 0x06) {
 			entries[currentEntry][cursorPos - 1] = input;
@@ -238,9 +232,7 @@ void changeEntry() {
 		sleep = true;
 	} else if(du2) {
 		sleep = false;
-	} */else {
-		PORTC = 0x00;
-	}
+	} */
 }
 
 /* check usart 0 for flags */
@@ -249,217 +241,11 @@ void checkU() {
 	if((lr = (check == 0x01)) || (rl = (check == 0x02)) || (du = (check == 0x03)) || (ud = (check == 0x04)) || (du2 = (check == 0x05)) || (ud2 = (check == 0x06))) {
 		receive = '\0';
 	}
-}
-
-/* The following series of state machines check for gestures
-   performed above the photo resistors */
-
-enum LRState {initlr, l0, l1, l2} lr_state;
-enum RLState {initrl, r0, r1, r2} rl_state;
-enum DUState {initdu, d0, d1, d2} du_state;
-enum UDState {initud, u0, u1, u2} ud_state;
-
-void lr_Init(){
-	lr_state = initlr;
-}
-
-void rl_Init(){
-	rl_state = initrl;
-}
-
-void du_Init(){
-	du_state = initdu;
-}
-
-void ud_Init(){
-	ud_state = initud;
-}
-
-void lr_Tick(){
-	switch(lr_state) {
-		case initlr:
-		lr_state = l0;
-		break;
-		case l0:
-		if(checkPhotoValue(0x02) && !checkPhotoValue(0x04)) {
-			lr_state = l1;
-		}
-		break;
-		case l1:
-		if(!checkPhotoValue(0x02) && !checkPhotoValue(0x04)) {
-			lr_state = l0;
-			} else if((!checkPhotoValue(0x02) && checkPhotoValue(0x04))) {
-			lr_state = l2;
-			leftRight = true;
-			} else {
-			lr_state = l1;
-		}
-		break;
-		case l2:
-		lr_state = l0;
-		default:
-		lr_state = initlr;
-		break;
-	}
-	switch(lr_state) {
-		case l0:
-		leftRight = false;
-		//PORTC = 0x00;
-		break;
-		case l2:
-		//PORTC = 0x01;
-		break;
-	}
-}
-
-void rl_Tick(){
-	switch(rl_state) {
-		case initrl:
-		rl_state = r0;
-		break;
-		case r0:
-		if(checkPhotoValue(0x04) && !checkPhotoValue(0x02)) {
-			rl_state = r1;
-		}
-		break;
-		case r1:
-		if(!checkPhotoValue(0x04) && !checkPhotoValue(0x02)) {
-			rl_state = r0;
-		} else if((!checkPhotoValue(0x04) && checkPhotoValue(0x02))) {
-				rl_state = r2;
-				rightLeft = true;
-		} else {
-				rl_state = r1;
-		}
-		break;
-		case r2:
-		rl_state = r0;
-		break;
-		default:
-		rl_state = initrl;
-		break;
-	}
-	switch(rl_state) {
-		case r0:
-		rightLeft = false;
-		//PORTC = 0x00;
-		break;
-		case r2:
-		//PORTC = 0x02;
-		break;
-	}
-}
-
-void du_Tick(){
-	switch(du_state) {
-		case initdu:
-		du_state = d0;
-		break;
-		case d0:
-		if(checkPhotoValue(0x05) && !checkPhotoValue(0x03)) {
-			du_state = d1;
-		}
-		break;
-		case d1:
-		if(!checkPhotoValue(0x05) && !checkPhotoValue(0x03)) {
-			du_state = d0;
-			} else if(!checkPhotoValue(0x05) && checkPhotoValue(0x03)) {
-			du_state = d2;
-			//downUp = true;
-			} else {
-			du_state = d1;
-		}
-		break;
-		case d2:
-		du_state = d0;
-		break;
-		default:
-		du_state = initdu;
-		break;
-	}
-	switch(du_state) {
-		case d0:
-		//downUp = false;
-		//PORTC = 0x00;
-		break;
-		case d2:
-		//PORTC = 0x04;
-		break;
-	}
-}
-
-void ud_Tick(){
-	switch(ud_state) {
-		case initud:
-		ud_state = u0;
-		break;
-		case u0:
-		if(checkPhotoValue(0x03) && !checkPhotoValue(0x05)) {
-			ud_state = u1;
-		}
-		break;
-		case u1:
-		if(!checkPhotoValue(0x03) && !checkPhotoValue(0x05)) {
-			ud_state = u0;
-			} else if(!checkPhotoValue(0x03) && checkPhotoValue(0x05)) {
-			ud_state = u2;
-			upDown = true;
-			} else {
-			ud_state = u1;
-		}
-		break;
-		case u2:
-		ud_state = u0;
-		break;
-		default:
-		ud_state = initud;
-		break;
-	}
-	switch(ud_state) {
-		case u0:
-		upDown = false;
-		//PORTC = 0x00;
-		break;
-		case u2:
-		//PORTC = 0x08;
-		break;
-	}
-}
-
-void lrTask()
-{
-	lr_Init();
-	for(;;) { 	
-		lr_Tick();
-		vTaskDelay(50); 
-	} 
-}
-
-void rlTask()
-{
-	rl_Init();
-	for(;;) {
-		rl_Tick();
-		vTaskDelay(50);
-	}
-}
-
-void duTask()
-{
-	du_Init();
-	for(;;) {
-		du_Tick();
-		vTaskDelay(50);
-	}
-}
-
-void udTask()
-{
-	ud_Init();
-	for(;;) {
-		ud_Tick();
-		vTaskDelay(50);
-	}
+	if(check == 0x03) PORTC = 0x01;
+	else if(check == 0x04) PORTC = 0x02;
+	else if(check == 0x01) PORTC = 0x03;
+	else if(check == 0x02) PORTC = 0x04;
+	else PORTC = 0x00;
 }
 
 void TextTask() {
@@ -467,38 +253,18 @@ void TextTask() {
 		enterText();
 		changeEntry();
 		checkU();
-		vTaskDelay(100);
+		vTaskDelay(150);
 	}
 }
 
 void ReceiveTask() {
 	for(;;) {
-		receive = USART_Receive(1);
 		if(USART_HasReceived(1)) {
+			receive = USART_Receive(1);
 			USART_Flush(1);
 		}
-		vTaskDelay(25);
+		vTaskDelay(50);
 	}
-}
-
-void Startlr(unsigned portBASE_TYPE Priority)
-{
-	xTaskCreate(lrTask, (signed portCHAR *)"lrTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
-}
-
-void Startrl(unsigned portBASE_TYPE Priority)
-{
-	xTaskCreate(rlTask, (signed portCHAR *)"rlTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
-}
-
-void Startdu(unsigned portBASE_TYPE Priority)
-{
-	xTaskCreate(duTask, (signed portCHAR *)"duTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
-}
-
-void Startud(unsigned portBASE_TYPE Priority)
-{
-	xTaskCreate(udTask, (signed portCHAR *)"udTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
 }
 
 void StartText(unsigned portBASE_TYPE Priority)
@@ -520,16 +286,16 @@ int main(void)
    //Initialize components and registers
    LCD_init();
    ADC_init();
-   photoValueL = calibrate(0x02) - 2;
-   photoValueR = calibrate(0x04) - 2;
+   //photoValueL = calibrate(0x02) - 2;
+   //photoValueR = calibrate(0x04) - 2;
    initUSART(1);
    
    fillEntries();
    //Start Tasks  
-   Startlr(1);
-   Startrl(1);
-   StartText(1);
+   //Startlr(1);
+   //Startrl(1);
    StartRec(1);
+   StartText(1);
     //RunSchedular 
    vTaskStartScheduler(); 
  

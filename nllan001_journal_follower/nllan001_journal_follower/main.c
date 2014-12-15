@@ -102,12 +102,6 @@ bool checkPhotoValue(unsigned char resistor) {
 	}
 }
 
-enum keyState {INIT,L0,L1,L2,L3,L4,L5,L6,L7} key_state;
-
-void key_Init() {
-	key_state = INIT;
-}
-
 void key_Tick() {
 	unsigned char input = GetKeypadKey();
 	if(input == 'A') {
@@ -123,12 +117,7 @@ void key_Tick() {
 		photoValueU2 = calibrate(0x05) - 4;
 	}
 	if(input != '\0') {
-		if(USART_IsSendReady(1)) {
-			USART_Send(input, 1);
-		}
-		if(USART_HasTransmitted(1)) {
-			USART_Flush(1);
-		}
+		sendDir(input);
 	}
 }
 
@@ -136,13 +125,9 @@ void sendDir(unsigned char sendValue) {
 	if(USART_IsSendReady(1)) {
 		USART_Send(sendValue, 1);
 	}
-	if(USART_HasTransmitted(1)) {
-		USART_Flush(1);
-	}
 }
 
 void keyTask() {
-	key_Init();
 	for(;;) { 	
 		key_Tick();
 		vTaskDelay(100); 
@@ -153,8 +138,8 @@ enum LRState {initlr, l0, l1, l2} lr_state;
 enum RLState {initrl, r0, r1, r2} rl_state;
 enum DUState {initdu, d0, d1, d2} du_state;
 enum UDState {initud, u0, u1, u2} ud_state;
-enum DU2State {initdu2, d20, d21, d22} du2_state;
-enum UD2State {initud2, u20, u21, u22} ud2_state;
+//enum DU2State {initdu2, d20, d21, d22} du2_state;
+//enum UD2State {initud2, u20, u21, u22} ud2_state;
 
 void lr_Init(){
 	lr_state = initlr;
@@ -171,7 +156,7 @@ void du_Init(){
 void ud_Init(){
 	ud_state = initud;
 }
-
+/*
 void du2_Init(){
 	du2_state = initdu2;
 }
@@ -179,7 +164,7 @@ void du2_Init(){
 void ud2_Init(){
 	ud2_state = initud2;
 }
-
+*/
 void lr_Tick(){
 	switch(lr_state) {
 		case initlr:
@@ -283,10 +268,10 @@ void du_Tick(){
 	}
 	switch(du_state) {
 		case d0:
-		//PORTC = 0x00;
+		PORTC = 0x00;
 		break;
 		case d2:
-		//PORTC = 0x04;
+		PORTC = 0x04;
 		break;
 	}
 }
@@ -320,14 +305,14 @@ void ud_Tick(){
 	}
 	switch(ud_state) {
 		case u0:
-		//PORTC = 0x00;
+		PORTC = 0x00;
 		break;
 		case u2:
-		//PORTC = 0x08;
+		PORTC = 0x08;
 		break;
 	}
 }
-
+/*
 void du2_Tick(){
 	switch(du2_state) {
 		case initdu2:
@@ -357,10 +342,10 @@ void du2_Tick(){
 	}
 	switch(du2_state) {
 		case d20:
-		PORTC = 0x00;
+		//PORTC = 0x00;
 		break;
 		case d22:
-		PORTC = 0x04;
+		//PORTC = 0x04;
 		break;
 	}
 }
@@ -394,20 +379,20 @@ void ud2_Tick(){
 	}
 	switch(ud2_state) {
 		case u20:
-		PORTC = 0x00;
+		//PORTC = 0x00;
 		break;
 		case u22:
-		PORTC = 0x08;
+		//PORTC = 0x08;
 		break;
 	}
 }
-
+*/
 void lrTask()
 {
 	lr_Init();
 	for(;;) {
 		lr_Tick();
-		vTaskDelay(100);
+		vTaskDelay(50);
 	}
 }
 
@@ -416,7 +401,7 @@ void rlTask()
 	rl_Init();
 	for(;;) {
 		rl_Tick();
-		vTaskDelay(100);
+		vTaskDelay(50);
 	}
 }
 
@@ -425,7 +410,7 @@ void duTask()
 	du_Init();
 	for(;;) {
 		du_Tick();
-		vTaskDelay(100);
+		vTaskDelay(50);
 	}
 }
 
@@ -434,16 +419,16 @@ void udTask()
 	ud_Init();
 	for(;;) {
 		ud_Tick();
-		vTaskDelay(100);
+		vTaskDelay(50);
 	}
 }
-
+/*
 void du2Task()
 {
 	du2_Init();
 	for(;;) {
 		du2_Tick();
-		vTaskDelay(100);
+		vTaskDelay(50);
 	}
 }
 
@@ -452,10 +437,10 @@ void ud2Task()
 	ud2_Init();
 	for(;;) {
 		ud2_Tick();
-		vTaskDelay(100);
+		vTaskDelay(50);
 	}
 }
-
+*/
 void keyPulse(unsigned portBASE_TYPE Priority)
 {
 	xTaskCreate(keyTask, (signed portCHAR *)"keyTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
@@ -480,7 +465,7 @@ void Startud(unsigned portBASE_TYPE Priority)
 {
 	xTaskCreate(udTask, (signed portCHAR *)"udTask", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
 }
-
+/*
 void Startdu2(unsigned portBASE_TYPE Priority)
 {
 	xTaskCreate(du2Task, (signed portCHAR *)"du2Task", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
@@ -490,13 +475,11 @@ void Startud2(unsigned portBASE_TYPE Priority)
 {
 	xTaskCreate(ud2Task, (signed portCHAR *)"ud2Task", configMINIMAL_STACK_SIZE, NULL, Priority, NULL );
 }
- 
+ */
 int main(void) 
 { 
-   //DDRA = 0x00; PORTA = 0xFF;
    DDRC = 0xFF; PORTC = 0x00;
    DDRB = 0xF0; PORTB = 0x0F;
-   //DDRD = 0x5F; PORTD = 0xA0;
    
    
    //Initialize components and registers
@@ -505,8 +488,8 @@ int main(void)
    photoValueR = calibrate(0x04) - 4;
    photoValueD = calibrate(0x01) - 4;
    photoValueU = calibrate(0x00) - 4;
-   photoValueD2 = calibrate(0x06) - 4;
-   photoValueU2 = calibrate(0x05) - 4;
+   //photoValueD2 = calibrate(0x06) - 4;
+   //photoValueU2 = calibrate(0x05) - 4;
    initUSART(1);
    
    //Start Tasks  
@@ -515,8 +498,8 @@ int main(void)
    Startrl(1);
    Startdu(1);
    Startud(1);
-   Startdu2(1);
-   Startud2(1);
+   //Startdu2(1);
+   //Startud2(1);
 	//RunSchedular 
    vTaskStartScheduler(); 
  
